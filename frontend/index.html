@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>School Admin</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; margin: 0; background: #f4f6f8; color: #222; }
+  header { background: #1e3a5f; color: white; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; }
+  header h1 { margin: 0; font-size: 20px; }
+  #logoutBtn { background: #ff6b6b; border: none; color: white; padding: 8px 14px; border-radius: 4px; cursor: pointer; }
+  .container { max-width: 900px; margin: 40px auto; padding: 0 16px; }
+  .card { background: white; padding: 24px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+  input, select { padding: 8px; margin: 4px 0; width: 100%; border: 1px solid #ccc; border-radius: 4px; }
+  button { background: #1e3a5f; color: white; border: none; padding: 10px 16px; border-radius: 4px; cursor: pointer; margin-top: 8px; }
+  button:hover { opacity: 0.9; }
+  button.danger { background: #ff6b6b; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid #eee; }
+  .error { color: #c0392b; margin-top: 8px; }
+  .success { color: #27ae60; margin-top: 8px; }
+  nav { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+  nav button { background: #dce3ea; color: #1e3a5f; }
+  nav button.active { background: #1e3a5f; color: white; }
+  .hidden { display: none; }
+  form { display: flex; flex-direction: column; gap: 4px; max-width: 400px; }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; }
+</style>
+</head>
+<body>
+
+<!-- ===== LOGIN SCREEN ===== -->
+<div id="loginScreen" class="container">
+  <div class="card">
+    <h2>Admin Login</h2>
+    <form id="loginForm">
+      <label>School ID</label>
+      <input type="number" id="loginSchoolId" required>
+      <label>Username</label>
+      <input type="text" id="loginUsername" required>
+      <label>Password</label>
+      <input type="password" id="loginPassword" required>
+      <button type="submit">Log In</button>
+    </form>
+    <div id="loginError" class="error"></div>
+  </div>
+</div>
+
+<!-- ===== DASHBOARD (hidden until logged in) ===== -->
+<div id="dashboard" class="container hidden">
+  <div class="card">
+    <nav id="mainNav">
+      <button data-tab="classes" class="active">Classes</button>
+      <button data-tab="learners">Learners</button>
+      <button data-tab="subjects">Subjects</button>
+      <button data-tab="teachers">Teachers</button>
+    </nav>
+
+    <!-- CLASSES TAB -->
+    <div id="tab-classes" class="tab">
+      <h2>Classes</h2>
+      <form id="classForm" class="row">
+        <input type="number" id="classGrade" placeholder="Grade (1-9)" min="1" max="9" required>
+        <input type="text" id="classStreamName" placeholder="Class name e.g. Grade 4 Blue" required>
+        <button type="submit">Add Class</button>
+      </form>
+      <div id="classMsg"></div>
+      <table id="classTable">
+        <thead><tr><th>Grade</th><th>Class Name</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- LEARNERS TAB -->
+    <div id="tab-learners" class="tab hidden">
+      <h2>Learners</h2>
+      <label>Select class to view/add learners:</label>
+      <select id="learnerClassSelect"></select>
+      <form id="learnerForm">
+        <div class="row">
+          <input type="text" id="learnerName" placeholder="Full Name" required>
+          <select id="learnerSex" required>
+            <option value="">Sex</option>
+            <option value="M">Male</option>
+            <option value="F">Female</option>
+          </select>
+        </div>
+        <div class="row">
+          <input type="text" id="learnerUpi" placeholder="UPI Number" required>
+          <input type="text" id="learnerAdmission" placeholder="Admission Number" required>
+        </div>
+        <input type="text" id="learnerAssessment" placeholder="Assessment Number">
+        <button type="submit">Add Learner</button>
+      </form>
+      <div id="learnerMsg"></div>
+      <table id="learnerTable">
+        <thead><tr><th>Name</th><th>Sex</th><th>UPI</th><th>Admission #</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- SUBJECTS TAB -->
+    <div id="tab-subjects" class="tab hidden">
+      <h2>Subjects</h2>
+      <form id="subjectForm" class="row">
+        <input type="number" id="subjectGrade" placeholder="Grade (1-9)" min="1" max="9" required>
+        <input type="text" id="subjectName" placeholder="Subject name (type it)" required>
+        <button type="submit">Add Subject</button>
+      </form>
+      <div id="subjectMsg"></div>
+      <table id="subjectTable">
+        <thead><tr><th>Grade</th><th>Subject</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- TEACHERS TAB -->
+    <div id="tab-teachers" class="tab hidden">
+      <h2>Teachers</h2>
+      <form id="teacherForm" class="row">
+        <input type="text" id="teacherSerial" placeholder="Serial Number (e.g. T001)" required>
+        <input type="text" id="teacherName" placeholder="Full Name" required>
+        <button type="submit">Add Teacher</button>
+      </form>
+      <div id="teacherMsg"></div>
+      <table id="teacherTable">
+        <thead><tr><th>Serial #</th><th>Name</th><th>Status</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+// ====== CONFIG ======
+const API_BASE = 'https://school-sis-fawn.vercel.app';
+
+// ====== TOKEN HELPERS ======
+function saveToken(token) { localStorage.setItem('sis_token', token); }
+function getToken() { return localStorage.getItem('sis_token'); }
+function clearToken() { localStorage.removeItem('sis_token'); }
+
+// ====== API HELPER ======
+async function api(path, options = {}) {
+  const headers = options.headers || {};
+  headers['Content-Type'] = 'application/json';
+  const token = getToken();
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  const res = await fetch(API_BASE + path, { ...options, headers });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
+// ====== LOGIN ======
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const school_id = Number(document.getElementById('loginSchoolId').value);
+  const username = document.getElementById('loginUsername').value;
+  const password = document.getElementById('loginPassword').value;
+  const errorBox = document.getElementById('loginError');
+  errorBox.textContent = '';
+  try {
+    const data = await api('/api/login/admin', {
+      method: 'POST',
+      body: JSON.stringify({ school_id, username, password })
+    });
+    saveToken(data.token);
+    showDashboard();
+  } catch (err) {
+    errorBox.textContent = err.message;
+  }
+});
+
+function showDashboard() {
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('dashboard').classList.remove('hidden');
+  loadClasses();
+  loadSubjects();
+  loadTeachers();
+}
+
+// If already logged in from before, skip straight to dashboard
+if (getToken()) showDashboard();
+
+// ====== TAB SWITCHING ======
+document.getElementById('mainNav').addEventListener('click', (e) => {
+  if (e.target.tagName !== 'BUTTON') return;
+  const tab = e.target.dataset.tab;
+  document.querySelectorAll('#mainNav button').forEach(b => b.classList.remove('active'));
+  e.target.classList.add('active');
+  document.querySelectorAll('.tab').forEach(t => t.classList.add('hidden'));
+  document.getElementById('tab-' + tab).classList.remove('hidden');
+});
+
+// ====== CLASSES ======
+async function loadClasses() {
+  try {
+    const classes = await api('/api/classes');
+    const tbody = document.querySelector('#classTable tbody');
+    tbody.innerHTML = '';
+    const select = document.getElementById('learnerClassSelect');
+    select.innerHTML = '';
+    classes.forEach(c => {
+      tbody.innerHTML += `<tr><td>${c.grade}</td><td>${c.stream_name}</td></tr>`;
+      select.innerHTML += `<option value="${c.id}">${c.stream_name} (Grade ${c.grade})</option>`;
+    });
+    if (classes.length) loadLearners(select.value);
+  } catch (err) {
+    document.getElementById('classMsg').innerHTML = `<div class="error">${err.message}</div>`;
+  }
+}
+
+document.getElementById('classForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const grade = Number(document.getElementById('classGrade').value);
+  const stream_name = document.getElementById('classStreamName').value;
+  const msg = document.getElementById('classMsg');
+  try {
+    await api('/api/classes', { method: 'POST', body: JSON.stringify({ grade, stream_name }) });
+    msg.innerHTML = '<div class="success">Class added.</div>';
+    e.target.reset();
+    loadClasses();
+  } catch (err) {
+    msg.innerHTML = `<div class="error">${err.message}</div>`;
+  }
+});
+
+// ====== LEARNERS ======
+document.getElementById('learnerClassSelect').addEventListener('change', (e) => {
+  loadLearners(e.target.value);
+});
+
+async function loadLearners(classId) {
+  if (!classId) return;
+  try {
+    const learners = await api(`/api/classes/${classId}/list`);
+    const tbody = document.querySelector('#learnerTable tbody');
+    tbody.innerHTML = '';
+    learners.forEach(l => {
+      tbody.innerHTML += `<tr>
+        <td>${l.name}</td><td>${l.sex || ''}</td><td>${l.upi_number}</td><td>${l.admission_number}</td>
+        <td><button class="danger" onclick="deleteLearner(${l.id}, ${classId})">Delete</button></td>
+      </tr>`;
+    });
+  } catch (err) {
+    document.getElementById('learnerMsg').innerHTML = `<div class="error">${err.message}</div>`;
+  }
+}
+
+document.getElementById('learnerForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const class_id = Number(document.getElementById('learnerClassSelect').value);
+  const msg = document.getElementById('learnerMsg');
+  if (!class_id) { msg.innerHTML = '<div class="error">Add a class first.</div>'; return; }
+  const body = {
+    class_id,
+    name: document.getElementById('learnerName').value,
+    sex: document.getElementById('learnerSex').value,
+    upi_number: document.getElementById('learnerUpi').value,
+    admission_number: document.getElementById('learnerAdmission').value,
+    assessment_number: document.getElementById('learnerAssessment').value
+  };
+  try {
+    await api('/api/learners', { method: 'POST', body: JSON.stringify(body) });
+    msg.innerHTML = '<div class="success">Learner added.</div>';
+    e.target.reset();
+    loadLearners(class_id);
+  } catch (err) {
+    msg.innerHTML = `<div class="error">${err.message}</div>`;
+  }
+});
+
+async function deleteLearner(id, classId) {
+  if (!confirm('Remove this learner?')) return;
+  try {
+    await api(`/api/learners/${id}`, { method: 'DELETE' });
+    loadLearners(classId);
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+// ====== SUBJECTS ======
+async function loadSubjects() {
+  try {
+    const subjects = await api('/api/subjects');
+    const tbody = document.querySelector('#subjectTable tbody');
+    tbody.innerHTML = '';
+    subjects.forEach(s => {
+      tbody.innerHTML += `<tr><td>${s.grade}</td><td>${s.name}</td>
+        <td><button class="danger" onclick="deleteSubject(${s.id})">Delete</button></td></tr>`;
+    });
+  } catch (err) {
+    document.getElementById('subjectMsg').innerHTML = `<div class="error">${err.message}</div>`;
+  }
+}
+
+document.getElementById('subjectForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const grade = Number(document.getElementById('subjectGrade').value);
+  const name = document.getElementById('subjectName').value;
+  const msg = document.getElementById('subjectMsg');
+  try {
+    await api('/api/subjects', { method: 'POST', body: JSON.stringify({ grade, name }) });
+    msg.innerHTML = '<div class="success">Subject added.</div>';
+    e.target.reset();
+    loadSubjects();
+  } catch (err) {
+    msg.innerHTML = `<div class="error">${err.message}</div>`;
+  }
+});
+
+async function deleteSubject(id) {
+  if (!confirm('Remove this subject?')) return;
+  try {
+    await api(`/api/subjects/${id}`, { method: 'DELETE' });
+    loadSubjects();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+// ====== TEACHERS ======
+async function loadTeachers() {
+  try {
+    const teachers = await api('/api/teachers');
+    const tbody = document.querySelector('#teacherTable tbody');
+    tbody.innerHTML = '';
+    teachers.forEach(t => {
+      tbody.innerHTML += `<tr>
+        <td>${t.serial_number}</td><td>${t.full_name}</td><td>${t.active ? 'Active' : 'Inactive'}</td>
+        <td><button class="danger" onclick="toggleTeacher(${t.id}, ${!t.active})">${t.active ? 'Deactivate' : 'Reactivate'}</button></td>
+      </tr>`;
+    });
+  } catch (err) {
+    document.getElementById('teacherMsg').innerHTML = `<div class="error">${err.message}</div>`;
+  }
+}
+
+document.getElementById('teacherForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const serial_number = document.getElementById('teacherSerial').value;
+  const full_name = document.getElementById('teacherName').value;
+  const msg = document.getElementById('teacherMsg');
+  try {
+    const result = await api('/api/teachers', { method: 'POST', body: JSON.stringify({ serial_number, full_name }) });
+    msg.innerHTML = `<div class="success">Teacher added. Login — username: <b>${result.username}</b>, temporary password: <b>${result.temp_password}</b>. Give these to the teacher; they'll be asked to change the password on first login.</div>`;
+    e.target.reset();
+    loadTeachers();
+  } catch (err) {
+    msg.innerHTML = `<div class="error">${err.message}</div>`;
+  }
+});
+
+async function toggleTeacher(id, newActive) {
+  try {
+    await api(`/api/teachers/${id}/active`, { method: 'PATCH', body: JSON.stringify({ active: newActive }) });
+    loadTeachers();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+</script>
+</body>
+</html>
