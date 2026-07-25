@@ -1,552 +1,1029 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const bcrypt = require('bcryptjs');
-const pool = require('./db');
-const { signToken, requireRole } = require('./auth');
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>School Admin</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; margin: 0; background: #f4f6f8; color: #222; }
+  header { background: #1e3a5f; color: white; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; }
+  header h1 { margin: 0; font-size: 20px; }
+  #logoutBtn { background: #ff6b6b; border: none; color: white; padding: 8px 14px; border-radius: 4px; cursor: pointer; }
+  .container { max-width: 900px; margin: 40px auto; padding: 0 16px; }
+  .card { background: white; padding: 24px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+  input, select { padding: 8px; margin: 4px 0; width: 100%; border: 1px solid #ccc; border-radius: 4px; }
+  button { background: #1e3a5f; color: white; border: none; padding: 10px 16px; border-radius: 4px; cursor: pointer; margin-top: 8px; }
+  button:hover { opacity: 0.9; }
+  button.danger { background: #ff6b6b; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid #eee; }
+  .error { color: #c0392b; margin-top: 8px; }
+  .success { color: #27ae60; margin-top: 8px; }
+  nav { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+  nav button { background: #dce3ea; color: #1e3a5f; }
+  nav button.active { background: #1e3a5f; color: white; }
+  .hidden { display: none; }
+  form { display: flex; flex-direction: column; gap: 4px; max-width: 400px; }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; }
+  textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; min-height: 60px; }
+  @media print {
+    body * { visibility: hidden; }
+    #reportOutput, #reportOutput * { visibility: visible; }
+    #reportOutput { position: absolute; left: 0; top: 0; width: 100%; }
+    .no-print { display: none !important; }
+  }
+</style>
+</head>
+<body>
 
-const app = express();
-app.use(cors());
-app.use(express.json());
+<!-- ===== LOGIN SCREEN ===== -->
+<div id="loginScreen" class="container">
+  <div class="card">
+    <h2>Admin Login</h2>
+    <form id="loginForm">
+      <label>School ID</label>
+      <input type="number" id="loginSchoolId" required>
+      <label>Username</label>
+      <input type="text" id="loginUsername" required>
+      <label>Password</label>
+      <input type="password" id="loginPassword" required>
+      <button type="submit">Log In</button>
+    </form>
+    <div id="loginError" class="error"></div>
+  </div>
+</div>
 
-// Small helper so we don't repeat try/catch everywhere
-const wrap = (fn) => (req, res) => fn(req, res).catch((err) => {
-  console.error(err);
-  res.status(500).json({ error: 'Server error', detail: err.message });
+<!-- ===== DASHBOARD (hidden until logged in) ===== -->
+<div id="dashboard" class="container hidden">
+  <div class="card">
+    <nav id="mainNav">
+      <button data-tab="classes" class="active">Classes</button>
+      <button data-tab="learners">Learners</button>
+      <button data-tab="subjects">Subjects</button>
+      <button data-tab="teachers">Teachers</button>
+      <button data-tab="assignments">Assignments</button>
+      <button data-tab="exams">Exams</button>
+      <button data-tab="grading">Grading</button>
+      <button data-tab="marksheet">Mark Sheet</button>
+      <button data-tab="analysis">Analysis</button>
+      <button data-tab="report">Report</button>
+      <button data-tab="timetable">Timetable</button>
+    </nav>
+
+    <!-- CLASSES TAB -->
+    <div id="tab-classes" class="tab">
+      <h2>Classes</h2>
+      <form id="classForm" class="row">
+        <input type="number" id="classGrade" placeholder="Grade (1-9)" min="1" max="9" required>
+        <input type="text" id="classStreamName" placeholder="Class name e.g. Grade 4 Blue" required>
+        <button type="submit">Add Class</button>
+      </form>
+      <div id="classMsg"></div>
+      <table id="classTable">
+        <thead><tr><th>Grade</th><th>Class Name</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- LEARNERS TAB -->
+    <div id="tab-learners" class="tab hidden">
+      <h2>Learners</h2>
+      <label>Select class to view/add learners:</label>
+      <select id="learnerClassSelect"></select>
+      <form id="learnerForm">
+        <div class="row">
+          <input type="text" id="learnerName" placeholder="Full Name" required>
+          <select id="learnerSex" required>
+            <option value="">Sex</option>
+            <option value="M">Male</option>
+            <option value="F">Female</option>
+          </select>
+        </div>
+        <div class="row">
+          <input type="text" id="learnerUpi" placeholder="UPI Number" required>
+          <input type="text" id="learnerAdmission" placeholder="Admission Number" required>
+        </div>
+        <input type="text" id="learnerAssessment" placeholder="Assessment Number">
+        <button type="submit">Add Learner</button>
+      </form>
+      <div id="learnerMsg"></div>
+      <table id="learnerTable">
+        <thead><tr><th>Name</th><th>Sex</th><th>UPI</th><th>Admission #</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- SUBJECTS TAB -->
+    <div id="tab-subjects" class="tab hidden">
+      <h2>Subjects</h2>
+      <form id="subjectForm" class="row">
+        <input type="number" id="subjectGrade" placeholder="Grade (1-9)" min="1" max="9" required>
+        <input type="text" id="subjectName" placeholder="Subject name (type it)" required>
+        <button type="submit">Add Subject</button>
+      </form>
+      <div id="subjectMsg"></div>
+      <table id="subjectTable">
+        <thead><tr><th>Grade</th><th>Subject</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- TEACHERS TAB -->
+    <div id="tab-teachers" class="tab hidden">
+      <h2>Teachers</h2>
+      <form id="teacherForm" class="row">
+        <input type="text" id="teacherSerial" placeholder="Serial Number (e.g. T001)" required>
+        <input type="text" id="teacherName" placeholder="Full Name" required>
+        <button type="submit">Add Teacher</button>
+      </form>
+      <div id="teacherMsg"></div>
+      <table id="teacherTable">
+        <thead><tr><th>Serial #</th><th>Name</th><th>Status</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- ASSIGNMENTS TAB -->
+    <div id="tab-assignments" class="tab hidden">
+      <h2>Teacher Assignments</h2>
+      <p>Choose which subject and class each teacher is allowed to enter marks for.</p>
+      <form id="assignForm" class="row">
+        <select id="assignTeacher"></select>
+        <select id="assignClass"></select>
+        <select id="assignSubject"></select>
+        <button type="submit">Assign</button>
+      </form>
+      <div id="assignMsg"></div>
+      <table id="assignmentTable">
+        <thead><tr><th>Teacher</th><th>Subject</th><th>Class</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- EXAMS TAB -->
+    <div id="tab-exams" class="tab hidden">
+      <h2>Exam Sessions</h2>
+      <p>Open an exam session so teachers can enter marks. Close it when done — only you can edit marks after that.</p>
+      <form id="examForm" class="row">
+        <input type="text" id="examName" placeholder="e.g. Term 2 Mid-Term 2026" required>
+        <button type="submit">Create Exam Session</button>
+      </form>
+      <div id="examMsg"></div>
+      <table id="examTable">
+        <thead><tr><th>Name</th><th>Status</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- GRADING TAB -->
+    <div id="tab-grading" class="tab hidden">
+      <h2>Grading System</h2>
+      <p>Set the score ranges for each grade letter, e.g. 80-100 = A. This applies to individual learner reports.</p>
+      <form id="gradingForm" class="row">
+        <input type="number" id="gradeMin" placeholder="Min score" required>
+        <input type="number" id="gradeMax" placeholder="Max score" required>
+        <input type="text" id="gradeLetter" placeholder="Letter (e.g. A)" required>
+        <input type="number" id="gradePoints" placeholder="Points (e.g. 12)" step="0.1" required>
+        <button type="submit">Add</button>
+      </form>
+      <div id="gradingMsg"></div>
+      <table id="gradingTable">
+        <thead><tr><th>Range</th><th>Letter</th><th>Points</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- MARK SHEET TAB -->
+    <div id="tab-marksheet" class="tab hidden">
+      <h2 id="marksheetSchoolHeader" style="text-align:center;"></h2>
+      <h2>Mark Sheet</h2>
+      <p>Click any score to correct it yourself (works even after the exam session is closed).</p>
+      <div class="row">
+        <select id="marksheetClassSelect"></select>
+        <select id="marksheetExamSelect"></select>
+        <button onclick="loadMarksheet()">Load Mark Sheet</button>
+      </div>
+      <div id="marksheetMsg"></div>
+      <div id="marksheetContainer" style="overflow-x:auto;"></div>
+    </div>
+
+    <!-- ANALYSIS TAB -->
+    <div id="tab-analysis" class="tab hidden">
+      <h2 id="analysisSchoolHeader" style="text-align:center;"></h2>
+      <h2>Results Analysis</h2>
+      <div class="row">
+        <select id="analysisClassSelect"></select>
+        <select id="analysisExamSelect"></select>
+        <button onclick="loadAnalysis()">Run Analysis</button>
+      </div>
+      <div id="analysisMsg"></div>
+      <div id="classTrendBox"></div>
+      <h3>Learner Ranking (best to worst), with each subject shown</h3>
+      <div id="learnerRankContainer" style="overflow-x:auto;"></div>
+      <h3>Most Improved Learners (vs previous exam)</h3>
+      <table id="improvedTable">
+        <thead><tr><th>Position</th><th>Name</th><th>Previous Average</th><th>Current Average</th><th>Change</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <h3>Subject Ranking (best to worst, by mean)</h3>
+      <table id="subjectRankTable">
+        <thead><tr><th>Subject</th><th>Average Score</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- REPORT TAB -->
+    <div id="tab-report" class="tab hidden">
+      <h2>Individual Learner Report</h2>
+      <div class="row no-print">
+        <select id="reportClassSelect"></select>
+        <select id="reportLearnerSelect"></select>
+        <select id="reportExamSelect"></select>
+        <button onclick="loadReport()">Generate Report</button>
+      </div>
+      <div id="reportMsg" class="no-print"></div>
+
+      <div id="reportOutput" style="display:none; margin-top:20px; border:1px solid #ddd; padding:20px; border-radius:8px;">
+        <h2 id="reportSchoolHeader" style="text-align:center;"></h2>
+        <h2 id="reportLearnerName"></h2>
+        <p id="reportLearnerMeta"></p>
+        <table id="reportSubjectsTable">
+          <thead><tr><th>Subject</th><th>Score</th><th>Grade</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <p id="reportPosition" style="font-weight:bold;"></p>
+        <h3>Performance Over Time</h3>
+        <div id="reportGraph"></div>
+        <h3>Remarks</h3>
+        <label>Class Teacher's Remark</label>
+        <textarea id="classTeacherRemark"></textarea>
+        <label>Head Teacher's Remark</label>
+        <textarea id="headTeacherRemark"></textarea>
+        <div class="no-print">
+          <button onclick="saveRemarks()">Save Remarks</button>
+          <button onclick="window.print()">Print / Download Report</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TIMETABLE TAB -->
+    <div id="tab-timetable" class="tab hidden">
+      <h2>Timetable</h2>
+      <p>Choose a class, then click any cell to assign a subject and teacher for that period.</p>
+      <select id="timetableClassSelect"></select>
+      <div id="timetableMsg"></div>
+      <div id="timetableContainer" style="overflow-x:auto;"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ====== CONFIG ======
+const API_BASE = 'https://school-sis-fawn.vercel.app';
+
+// ====== TOKEN HELPERS ======
+function saveToken(token) { localStorage.setItem('sis_token', token); }
+function getToken() { return localStorage.getItem('sis_token'); }
+function clearToken() { localStorage.removeItem('sis_token'); }
+
+// ====== API HELPER ======
+async function api(path, options = {}) {
+  const headers = options.headers || {};
+  headers['Content-Type'] = 'application/json';
+  const token = getToken();
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  const res = await fetch(API_BASE + path, { ...options, headers });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
+// ====== LOGIN ======
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const school_id = Number(document.getElementById('loginSchoolId').value);
+  const username = document.getElementById('loginUsername').value;
+  const password = document.getElementById('loginPassword').value;
+  const errorBox = document.getElementById('loginError');
+  errorBox.textContent = '';
+  try {
+    const data = await api('/api/login/admin', {
+      method: 'POST',
+      body: JSON.stringify({ school_id, username, password })
+    });
+    saveToken(data.token);
+    showDashboard();
+  } catch (err) {
+    errorBox.textContent = err.message;
+  }
 });
 
-// ---------- LOGIN ----------
-app.post('/api/login/superadmin', wrap(async (req, res) => {
-  const { username, password } = req.body;
-  const { rows } = await pool.query('SELECT * FROM super_admins WHERE username=$1', [username]);
-  const row = rows[0];
-  if (!row || !bcrypt.compareSync(password, row.password_hash)) {
-    return res.status(401).json({ error: 'Invalid credentials' });
-  }
-  res.json({ token: signToken({ role: 'superadmin', id: row.id }) });
-}));
-
-app.post('/api/login/admin', wrap(async (req, res) => {
-  const { school_id, username, password } = req.body;
-  const { rows } = await pool.query('SELECT * FROM admins WHERE school_id=$1 AND username=$2', [school_id, username]);
-  const row = rows[0];
-  if (!row || !bcrypt.compareSync(password, row.password_hash)) {
-    return res.status(401).json({ error: 'Invalid credentials' });
-  }
-  res.json({ token: signToken({ role: 'admin', id: row.id, school_id: row.school_id }) });
-}));
-
-app.post('/api/login/teacher', wrap(async (req, res) => {
-  const { school_id, serial_number, password } = req.body;
-  const { rows } = await pool.query(
-    'SELECT * FROM teachers WHERE school_id=$1 AND serial_number=$2 AND active=TRUE',
-    [school_id, serial_number]
-  );
-  const row = rows[0];
-  if (!row || !bcrypt.compareSync(password, row.password_hash)) {
-    return res.status(401).json({ error: 'Invalid credentials' });
-  }
-  res.json({
-    token: signToken({ role: 'teacher', id: row.id, school_id: row.school_id }),
-    must_reset_password: row.must_reset_password
-  });
-}));
-
-app.post('/api/teacher/reset-password', requireRole('teacher'), wrap(async (req, res) => {
-  const { new_password } = req.body;
-  const hash = bcrypt.hashSync(new_password, 10);
-  await pool.query('UPDATE teachers SET password_hash=$1, must_reset_password=FALSE WHERE id=$2', [hash, req.user.id]);
-  res.json({ ok: true });
-}));
-
-// ---------- SUPER ADMIN: schools ----------
-app.post('/api/schools', requireRole('superadmin'), wrap(async (req, res) => {
-  const { name, admin_username, admin_password } = req.body;
-  const { rows } = await pool.query('INSERT INTO schools (name) VALUES ($1) RETURNING id', [name]);
-  const schoolId = rows[0].id;
-  const hash = bcrypt.hashSync(admin_password, 10);
-  await pool.query('INSERT INTO admins (school_id, username, password_hash) VALUES ($1,$2,$3)', [schoolId, admin_username, hash]);
-  res.json({ school_id: schoolId });
-}));
-
-app.get('/api/schools', requireRole('superadmin'), wrap(async (req, res) => {
-  const { rows } = await pool.query('SELECT * FROM schools ORDER BY id');
-  res.json(rows);
-}));
-
-// ---------- ADMIN: classes ----------
-app.post('/api/classes', requireRole('admin'), wrap(async (req, res) => {
-  const { grade, stream_name } = req.body;
-  const { rows } = await pool.query(
-    'INSERT INTO classes (school_id, grade, stream_name) VALUES ($1,$2,$3) RETURNING id',
-    [req.user.school_id, grade, stream_name]
-  );
-  res.json({ id: rows[0].id });
-}));
-
-app.get('/api/classes', requireRole('admin', 'teacher'), wrap(async (req, res) => {
-  const { rows } = await pool.query('SELECT * FROM classes WHERE school_id=$1 ORDER BY grade, stream_name', [req.user.school_id]);
-  res.json(rows);
-}));
-
-// ---------- ADMIN: learners ----------
-app.post('/api/learners', requireRole('admin'), wrap(async (req, res) => {
-  const { class_id, upi_number, name, sex, admission_number, assessment_number } = req.body;
-  const { rows } = await pool.query(
-    `INSERT INTO learners (school_id, class_id, upi_number, name, sex, admission_number, assessment_number)
-     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
-    [req.user.school_id, class_id, upi_number, name, sex, admission_number, assessment_number]
-  );
-  res.json({ id: rows[0].id });
-}));
-
-app.get('/api/classes/:classId/list', requireRole('admin', 'teacher'), wrap(async (req, res) => {
-  const { rows } = await pool.query(
-    'SELECT * FROM learners WHERE school_id=$1 AND class_id=$2 ORDER BY name',
-    [req.user.school_id, req.params.classId]
-  );
-  res.json(rows);
-}));
-
-app.delete('/api/learners/:id', requireRole('admin'), wrap(async (req, res) => {
-  await pool.query('DELETE FROM learners WHERE id=$1 AND school_id=$2', [req.params.id, req.user.school_id]);
-  res.json({ ok: true });
-}));
-
-// ---------- ADMIN: subjects ----------
-app.post('/api/subjects', requireRole('admin'), wrap(async (req, res) => {
-  const { grade, name } = req.body;
-  const { rows } = await pool.query(
-    'INSERT INTO subjects (school_id, grade, name) VALUES ($1,$2,$3) RETURNING id',
-    [req.user.school_id, grade, name]
-  );
-  res.json({ id: rows[0].id });
-}));
-
-app.get('/api/subjects', requireRole('admin', 'teacher'), wrap(async (req, res) => {
-  const { grade } = req.query;
-  const { rows } = grade
-    ? await pool.query('SELECT * FROM subjects WHERE school_id=$1 AND grade=$2', [req.user.school_id, grade])
-    : await pool.query('SELECT * FROM subjects WHERE school_id=$1', [req.user.school_id]);
-  res.json(rows);
-}));
-
-app.delete('/api/subjects/:id', requireRole('admin'), wrap(async (req, res) => {
-  await pool.query('DELETE FROM subjects WHERE id=$1 AND school_id=$2', [req.params.id, req.user.school_id]);
-  res.json({ ok: true });
-}));
-
-// ---------- ADMIN: teachers ----------
-app.post('/api/teachers', requireRole('admin'), wrap(async (req, res) => {
-  const { serial_number, full_name } = req.body;
-  const firstName = full_name.trim().split(' ')[0].toLowerCase();
-  const hash = bcrypt.hashSync(firstName, 10);
-  const { rows } = await pool.query(
-    `INSERT INTO teachers (school_id, serial_number, full_name, password_hash, must_reset_password, active)
-     VALUES ($1,$2,$3,$4,TRUE,TRUE) RETURNING id`,
-    [req.user.school_id, serial_number, full_name, hash]
-  );
-  res.json({ id: rows[0].id, username: serial_number, temp_password: firstName });
-}));
-
-app.get('/api/teachers', requireRole('admin'), wrap(async (req, res) => {
-  const { rows } = await pool.query(
-    'SELECT id, serial_number, full_name, active FROM teachers WHERE school_id=$1',
-    [req.user.school_id]
-  );
-  res.json(rows);
-}));
-
-app.patch('/api/teachers/:id/active', requireRole('admin'), wrap(async (req, res) => {
-  const { active } = req.body;
-  await pool.query('UPDATE teachers SET active=$1 WHERE id=$2 AND school_id=$3', [!!active, req.params.id, req.user.school_id]);
-  res.json({ ok: true });
-}));
-
-app.post('/api/teacher-assignments', requireRole('admin'), wrap(async (req, res) => {
-  const { teacher_id, class_id, subject_id } = req.body;
-  await pool.query(
-    `INSERT INTO teacher_assignments (school_id, teacher_id, class_id, subject_id)
-     VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING`,
-    [req.user.school_id, teacher_id, class_id, subject_id]
-  );
-  res.json({ ok: true });
-}));
-
-app.get('/api/teacher-assignments', requireRole('admin'), wrap(async (req, res) => {
-  const { rows } = await pool.query(`
-    SELECT ta.*, t.full_name as teacher_name, s.name as subject_name, c.stream_name, c.grade
-    FROM teacher_assignments ta
-    JOIN teachers t ON t.id = ta.teacher_id
-    JOIN subjects s ON s.id = ta.subject_id
-    JOIN classes c ON c.id = ta.class_id
-    WHERE ta.school_id = $1
-  `, [req.user.school_id]);
-  res.json(rows);
-}));
-
-app.delete('/api/teacher-assignments/:id', requireRole('admin'), wrap(async (req, res) => {
-  await pool.query('DELETE FROM teacher_assignments WHERE id=$1 AND school_id=$2', [req.params.id, req.user.school_id]);
-  res.json({ ok: true });
-}));
-
-app.get('/api/teacher-assignments/mine', requireRole('teacher'), wrap(async (req, res) => {
-  const { rows } = await pool.query(`
-    SELECT ta.*, s.name as subject_name, c.stream_name, c.grade
-    FROM teacher_assignments ta
-    JOIN subjects s ON s.id = ta.subject_id
-    JOIN classes c ON c.id = ta.class_id
-    WHERE ta.teacher_id = $1 AND ta.school_id = $2
-  `, [req.user.id, req.user.school_id]);
-  res.json(rows);
-}));
-
-// ---------- ADMIN: exam sessions ----------
-app.post('/api/exam-sessions', requireRole('admin'), wrap(async (req, res) => {
-  const { name } = req.body;
-  const { rows } = await pool.query(
-    'INSERT INTO exam_sessions (school_id, name, is_open) VALUES ($1,$2,FALSE) RETURNING id',
-    [req.user.school_id, name]
-  );
-  res.json({ id: rows[0].id });
-}));
-
-app.patch('/api/exam-sessions/:id/toggle', requireRole('admin'), wrap(async (req, res) => {
-  const { is_open } = req.body;
-  await pool.query('UPDATE exam_sessions SET is_open=$1 WHERE id=$2 AND school_id=$3', [!!is_open, req.params.id, req.user.school_id]);
-  res.json({ ok: true });
-}));
-
-app.get('/api/exam-sessions', requireRole('admin', 'teacher'), wrap(async (req, res) => {
-  const { rows } = await pool.query('SELECT * FROM exam_sessions WHERE school_id=$1 ORDER BY id', [req.user.school_id]);
-  res.json(rows);
-}));
-
-// ---------- TEACHER: enter marks ----------
-app.post('/api/marks', requireRole('teacher'), wrap(async (req, res) => {
-  const { exam_session_id, learner_id, subject_id, score } = req.body;
-
-  const sessionRes = await pool.query('SELECT * FROM exam_sessions WHERE id=$1 AND school_id=$2', [exam_session_id, req.user.school_id]);
-  const session = sessionRes.rows[0];
-  if (!session || !session.is_open) {
-    return res.status(403).json({ error: 'This exam session is closed. Ask the admin to open it.' });
-  }
-
-  const learnerRes = await pool.query('SELECT * FROM learners WHERE id=$1 AND school_id=$2', [learner_id, req.user.school_id]);
-  const learner = learnerRes.rows[0];
-
-  const assignedRes = await pool.query(
-    'SELECT * FROM teacher_assignments WHERE teacher_id=$1 AND class_id=$2 AND subject_id=$3 AND school_id=$4',
-    [req.user.id, learner.class_id, subject_id, req.user.school_id]
-  );
-  if (!assignedRes.rows[0]) {
-    return res.status(403).json({ error: 'You are not assigned to teach this subject for this class.' });
-  }
-
-  await pool.query(`
-    INSERT INTO marks (school_id, exam_session_id, learner_id, subject_id, teacher_id, score)
-    VALUES ($1,$2,$3,$4,$5,$6)
-    ON CONFLICT (exam_session_id, learner_id, subject_id)
-    DO UPDATE SET score=EXCLUDED.score, teacher_id=EXCLUDED.teacher_id, entered_at=NOW()
-  `, [req.user.school_id, exam_session_id, learner_id, subject_id, req.user.id, score]);
-
-  res.json({ ok: true });
-}));
-
-app.put('/api/marks/admin-override', requireRole('admin'), wrap(async (req, res) => {
-  const { exam_session_id, learner_id, subject_id, score } = req.body;
-  await pool.query(`
-    INSERT INTO marks (school_id, exam_session_id, learner_id, subject_id, teacher_id, score)
-    VALUES ($1,$2,$3,$4, 0, $5)
-    ON CONFLICT (exam_session_id, learner_id, subject_id)
-    DO UPDATE SET score=EXCLUDED.score, entered_at=NOW()
-  `, [req.user.school_id, exam_session_id, learner_id, subject_id, score]);
-  res.json({ ok: true });
-}));
-
-// ---------- MARK SHEET ----------
-app.get('/api/marksheet/:classId/:examSessionId', requireRole('admin', 'teacher'), wrap(async (req, res) => {
-  const { classId, examSessionId } = req.params;
-  const learnersRes = await pool.query('SELECT * FROM learners WHERE school_id=$1 AND class_id=$2 ORDER BY name', [req.user.school_id, classId]);
-  const clsRes = await pool.query('SELECT * FROM classes WHERE id=$1', [classId]);
-  const cls = clsRes.rows[0];
-  const subjectsRes = await pool.query('SELECT * FROM subjects WHERE school_id=$1 AND grade=$2', [req.user.school_id, cls.grade]);
-  const marksRes = await pool.query(
-    `SELECT * FROM marks WHERE school_id=$1 AND exam_session_id=$2 AND learner_id IN (SELECT id FROM learners WHERE class_id=$3)`,
-    [req.user.school_id, examSessionId, classId]
-  );
-
-  const marksByLearner = {};
-  for (const m of marksRes.rows) {
-    marksByLearner[m.learner_id] = marksByLearner[m.learner_id] || {};
-    marksByLearner[m.learner_id][m.subject_id] = m.score;
-  }
-
-  res.json({
-    class: cls,
-    subjects: subjectsRes.rows,
-    rows: learnersRes.rows.map(l => ({
-      learner: l,
-      scores: subjectsRes.rows.map(s => marksByLearner[l.id]?.[s.id] ?? null)
-    }))
-  });
-}));
-
-// ---------- GRADING BANDS ----------
-app.post('/api/grading-bands', requireRole('admin'), wrap(async (req, res) => {
-  const { min_score, max_score, grade_letter, points } = req.body;
-  const { rows } = await pool.query(
-    'INSERT INTO grading_bands (school_id, min_score, max_score, grade_letter, points) VALUES ($1,$2,$3,$4,$5) RETURNING id',
-    [req.user.school_id, min_score, max_score, grade_letter, points]
-  );
-  res.json({ id: rows[0].id });
-}));
-
-app.get('/api/grading-bands', requireRole('admin', 'teacher'), wrap(async (req, res) => {
-  const { rows } = await pool.query('SELECT * FROM grading_bands WHERE school_id=$1 ORDER BY min_score DESC', [req.user.school_id]);
-  res.json(rows);
-}));
-
-app.delete('/api/grading-bands/:id', requireRole('admin'), wrap(async (req, res) => {
-  await pool.query('DELETE FROM grading_bands WHERE id=$1 AND school_id=$2', [req.params.id, req.user.school_id]);
-  res.json({ ok: true });
-}));
-
-async function scoreToBand(schoolId, score) {
-  const { rows } = await pool.query('SELECT * FROM grading_bands WHERE school_id=$1', [schoolId]);
-  return rows.find(b => score >= b.min_score && score <= b.max_score) || null;
+function showDashboard() {
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('dashboard').classList.remove('hidden');
+  loadClasses();
+  loadSubjects();
+  loadTeachers();
+  loadAssignments();
+  loadExams();
+  loadGradingBands();
+  loadSchoolInfo();
 }
 
-// ---------- ANALYTICS ----------
-app.get('/api/analysis/:examSessionId/grade/:grade', requireRole('admin'), wrap(async (req, res) => {
-  const { examSessionId, grade } = req.params;
-  const learnersRes = await pool.query(`
-    SELECT l.* FROM learners l JOIN classes c ON c.id = l.class_id
-    WHERE l.school_id=$1 AND c.grade=$2
-  `, [req.user.school_id, grade]);
+// If already logged in from before, skip straight to dashboard
+if (getToken()) showDashboard();
 
-  const results = [];
-  for (const l of learnersRes.rows) {
-    const marksRes = await pool.query('SELECT score FROM marks WHERE exam_session_id=$1 AND learner_id=$2', [examSessionId, l.id]);
-    const marks = marksRes.rows;
-    const total = marks.reduce((a, m) => a + Number(m.score), 0);
-    const mean = marks.length ? total / marks.length : 0;
-    results.push({ learner: l, total, mean, subjects_recorded: marks.length });
+// ====== TAB SWITCHING ======
+document.getElementById('mainNav').addEventListener('click', (e) => {
+  if (e.target.tagName !== 'BUTTON') return;
+  const tab = e.target.dataset.tab;
+  document.querySelectorAll('#mainNav button').forEach(b => b.classList.remove('active'));
+  e.target.classList.add('active');
+  document.querySelectorAll('.tab').forEach(t => t.classList.add('hidden'));
+  document.getElementById('tab-' + tab).classList.remove('hidden');
+});
+
+// ====== CLASSES ======
+let currentClasses = [];
+async function loadClasses() {
+  try {
+    const classes = await api('/api/classes');
+    currentClasses = classes;
+    const tbody = document.querySelector('#classTable tbody');
+    tbody.innerHTML = '';
+    const select = document.getElementById('learnerClassSelect');
+    select.innerHTML = '';
+    classes.forEach(c => {
+      tbody.innerHTML += `<tr><td>${c.grade}</td><td>${c.stream_name}</td>
+        <td><button onclick="editClass(${c.id})">Edit</button></td></tr>`;
+      select.innerHTML += `<option value="${c.id}">${c.stream_name} (Grade ${c.grade})</option>`;
+    });
+    if (classes.length) loadLearners(select.value);
+    populateAssignmentSelects();
+    populateMarksheetSelects();
+    populateReportClassSelect();
+    populateTimetableClassSelect();
+  } catch (err) {
+    document.getElementById('classMsg').innerHTML = `<div class="error">${err.message}</div>`;
   }
-  results.sort((a, b) => b.mean - a.mean);
-  const learnerRanking = results.map((r, i) => ({ position: i + 1, ...r }));
+}
 
-  const subjectsRes = await pool.query('SELECT * FROM subjects WHERE school_id=$1 AND grade=$2', [req.user.school_id, grade]);
-  const subjectRanking = [];
-  for (const s of subjectsRes.rows) {
-    const marksRes = await pool.query(`
-      SELECT m.score FROM marks m JOIN learners l ON l.id = m.learner_id
-      WHERE m.exam_session_id=$1 AND m.subject_id=$2 AND l.class_id IN (
-        SELECT id FROM classes WHERE school_id=$3 AND grade=$4
-      )
-    `, [examSessionId, s.id, req.user.school_id, grade]);
-    const marks = marksRes.rows;
-    const mean = marks.length ? marks.reduce((a, m) => a + Number(m.score), 0) / marks.length : 0;
-    subjectRanking.push({ subject: s.name, mean, entries: marks.length });
+function editClass(id) {
+  const c = currentClasses.find(x => x.id === id);
+  if (!c) return;
+  const grade = prompt('Grade (1-9):', c.grade);
+  if (grade === null) return;
+  const stream_name = prompt('Class name:', c.stream_name);
+  if (stream_name === null) return;
+  api(`/api/classes/${id}`, { method: 'PATCH', body: JSON.stringify({ grade: Number(grade), stream_name }) })
+    .then(loadClasses)
+    .catch(err => alert(err.message));
+}
+
+document.getElementById('classForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const grade = Number(document.getElementById('classGrade').value);
+  const stream_name = document.getElementById('classStreamName').value;
+  const msg = document.getElementById('classMsg');
+  try {
+    await api('/api/classes', { method: 'POST', body: JSON.stringify({ grade, stream_name }) });
+    msg.innerHTML = '<div class="success">Class added.</div>';
+    e.target.reset();
+    loadClasses();
+  } catch (err) {
+    msg.innerHTML = `<div class="error">${err.message}</div>`;
   }
-  subjectRanking.sort((a, b) => b.mean - a.mean);
+});
 
-  res.json({ learnerRanking, subjectRanking });
-}));
+// ====== LEARNERS ======
+document.getElementById('learnerClassSelect').addEventListener('change', (e) => {
+  loadLearners(e.target.value);
+});
 
-app.get('/api/analysis/class/:classId/:examSessionId', requireRole('admin'), wrap(async (req, res) => {
-  const { classId, examSessionId } = req.params;
+let currentLearners = [];
+async function loadLearners(classId) {
+  if (!classId) return;
+  try {
+    const learners = await api(`/api/classes/${classId}/list`);
+    currentLearners = learners;
+    const tbody = document.querySelector('#learnerTable tbody');
+    tbody.innerHTML = '';
+    learners.forEach(l => {
+      tbody.innerHTML += `<tr>
+        <td>${l.name}</td><td>${l.sex || ''}</td><td>${l.upi_number}</td><td>${l.admission_number}</td>
+        <td><button onclick="editLearner(${l.id}, ${classId})">Edit</button>
+        <button class="danger" onclick="deleteLearner(${l.id}, ${classId})">Delete</button></td>
+      </tr>`;
+    });
+  } catch (err) {
+    document.getElementById('learnerMsg').innerHTML = `<div class="error">${err.message}</div>`;
+  }
+}
 
-  const clsRes = await pool.query('SELECT * FROM classes WHERE id=$1 AND school_id=$2', [classId, req.user.school_id]);
-  const cls = clsRes.rows[0];
-  if (!cls) return res.status(404).json({ error: 'Class not found' });
+function editLearner(id, classId) {
+  const l = currentLearners.find(x => x.id === id);
+  if (!l) return;
+  const name = prompt('Full name:', l.name);
+  if (name === null) return;
+  const sex = prompt('Sex (M or F):', l.sex || '');
+  if (sex === null) return;
+  const upi_number = prompt('UPI number:', l.upi_number);
+  if (upi_number === null) return;
+  const admission_number = prompt('Admission number:', l.admission_number);
+  if (admission_number === null) return;
+  const assessment_number = prompt('Assessment number:', l.assessment_number || '');
+  if (assessment_number === null) return;
+  api(`/api/learners/${id}`, { method: 'PATCH', body: JSON.stringify({ name, sex, upi_number, admission_number, assessment_number }) })
+    .then(() => loadLearners(classId))
+    .catch(err => alert(err.message));
+}
 
-  const subjectsRes = await pool.query('SELECT * FROM subjects WHERE school_id=$1 AND grade=$2 ORDER BY name', [req.user.school_id, cls.grade]);
-  const subjects = subjectsRes.rows;
+document.getElementById('learnerForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const class_id = Number(document.getElementById('learnerClassSelect').value);
+  const msg = document.getElementById('learnerMsg');
+  if (!class_id) { msg.innerHTML = '<div class="error">Add a class first.</div>'; return; }
+  const body = {
+    class_id,
+    name: document.getElementById('learnerName').value,
+    sex: document.getElementById('learnerSex').value,
+    upi_number: document.getElementById('learnerUpi').value,
+    admission_number: document.getElementById('learnerAdmission').value,
+    assessment_number: document.getElementById('learnerAssessment').value
+  };
+  try {
+    await api('/api/learners', { method: 'POST', body: JSON.stringify(body) });
+    msg.innerHTML = '<div class="success">Learner added.</div>';
+    e.target.reset();
+    loadLearners(class_id);
+  } catch (err) {
+    msg.innerHTML = `<div class="error">${err.message}</div>`;
+  }
+});
 
-  const learnersRes = await pool.query('SELECT * FROM learners WHERE school_id=$1 AND class_id=$2 ORDER BY name', [req.user.school_id, classId]);
-  const learners = learnersRes.rows;
+async function deleteLearner(id, classId) {
+  if (!confirm('Remove this learner?')) return;
+  try {
+    await api(`/api/learners/${id}`, { method: 'DELETE' });
+    loadLearners(classId);
+  } catch (err) {
+    alert(err.message);
+  }
+}
 
-  const marksRes = await pool.query(
-    'SELECT * FROM marks WHERE exam_session_id=$1 AND learner_id IN (SELECT id FROM learners WHERE class_id=$2)',
-    [examSessionId, classId]
-  );
-  const marks = marksRes.rows;
+// ====== SUBJECTS ======
+let currentSubjects = [];
+async function loadSubjects() {
+  try {
+    const subjects = await api('/api/subjects');
+    currentSubjects = subjects;
+    const tbody = document.querySelector('#subjectTable tbody');
+    tbody.innerHTML = '';
+    subjects.forEach(s => {
+      tbody.innerHTML += `<tr><td>${s.grade}</td><td>${s.name}</td>
+        <td><button onclick="editSubject(${s.id})">Edit</button>
+        <button class="danger" onclick="deleteSubject(${s.id})">Delete</button></td></tr>`;
+    });
+    populateAssignmentSelects();
+  } catch (err) {
+    document.getElementById('subjectMsg').innerHTML = `<div class="error">${err.message}</div>`;
+  }
+}
 
-  const marksByLearner = {};
-  marks.forEach(m => {
-    marksByLearner[m.learner_id] = marksByLearner[m.learner_id] || {};
-    marksByLearner[m.learner_id][m.subject_id] = Number(m.score);
-  });
+function editSubject(id) {
+  const s = currentSubjects.find(x => x.id === id);
+  if (!s) return;
+  const grade = prompt('Grade (1-9):', s.grade);
+  if (grade === null) return;
+  const name = prompt('Subject name:', s.name);
+  if (name === null) return;
+  api(`/api/subjects/${id}`, { method: 'PATCH', body: JSON.stringify({ grade: Number(grade), name }) })
+    .then(loadSubjects)
+    .catch(err => alert(err.message));
+}
 
-  const learnerRanking = learners.map(l => {
-    const subjectScores = subjects.map(s => ({
-      subject: s.name,
-      score: marksByLearner[l.id] && marksByLearner[l.id][s.id] !== undefined ? marksByLearner[l.id][s.id] : null
-    }));
-    const recorded = subjectScores.filter(s => s.score !== null).map(s => s.score);
-    const mean = recorded.length ? recorded.reduce((a, b) => a + b, 0) / recorded.length : 0;
-    return { learner: l, mean, subjects: subjectScores };
-  }).sort((a, b) => b.mean - a.mean)
-    .map((r, i) => ({ position: i + 1, ...r }));
+document.getElementById('subjectForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const grade = Number(document.getElementById('subjectGrade').value);
+  const name = document.getElementById('subjectName').value;
+  const msg = document.getElementById('subjectMsg');
+  try {
+    await api('/api/subjects', { method: 'POST', body: JSON.stringify({ grade, name }) });
+    msg.innerHTML = '<div class="success">Subject added.</div>';
+    e.target.reset();
+    loadSubjects();
+  } catch (err) {
+    msg.innerHTML = `<div class="error">${err.message}</div>`;
+  }
+});
 
-  const subjectRanking = subjects.map(s => {
-    const scores = learners
-      .map(l => (marksByLearner[l.id] ? marksByLearner[l.id][s.id] : undefined))
-      .filter(v => v !== undefined);
-    const mean = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
-    return { subject: s.name, mean, entries: scores.length };
-  }).sort((a, b) => b.mean - a.mean);
+async function deleteSubject(id) {
+  if (!confirm('Remove this subject?')) return;
+  try {
+    await api(`/api/subjects/${id}`, { method: 'DELETE' });
+    loadSubjects();
+  } catch (err) {
+    alert(err.message);
+  }
+}
 
-  const prevRes = await pool.query(
-    'SELECT * FROM exam_sessions WHERE school_id=$1 AND id < $2 ORDER BY id DESC LIMIT 1',
-    [req.user.school_id, examSessionId]
-  );
-  const prevExam = prevRes.rows[0] || null;
+// ====== TEACHERS ======
+let currentTeachers = [];
+async function loadTeachers() {
+  try {
+    const teachers = await api('/api/teachers');
+    currentTeachers = teachers;
+    const tbody = document.querySelector('#teacherTable tbody');
+    tbody.innerHTML = '';
+    teachers.forEach(t => {
+      tbody.innerHTML += `<tr>
+        <td>${t.serial_number}</td><td>${t.full_name}</td><td>${t.active ? 'Active' : 'Inactive'}</td>
+        <td><button class="danger" onclick="toggleTeacher(${t.id}, ${!t.active})">${t.active ? 'Deactivate' : 'Reactivate'}</button></td>
+      </tr>`;
+    });
+    populateAssignmentSelects();
+  } catch (err) {
+    document.getElementById('teacherMsg').innerHTML = `<div class="error">${err.message}</div>`;
+  }
+}
 
-  let mostImproved = [];
-  let classTrend = null;
+document.getElementById('teacherForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const serial_number = document.getElementById('teacherSerial').value;
+  const full_name = document.getElementById('teacherName').value;
+  const msg = document.getElementById('teacherMsg');
+  try {
+    const result = await api('/api/teachers', { method: 'POST', body: JSON.stringify({ serial_number, full_name }) });
+    msg.innerHTML = `<div class="success">Teacher added. Login — username: <b>${result.username}</b>, temporary password: <b>${result.temp_password}</b>. Give these to the teacher; they'll be asked to change the password on first login.</div>`;
+    e.target.reset();
+    loadTeachers();
+  } catch (err) {
+    msg.innerHTML = `<div class="error">${err.message}</div>`;
+  }
+});
 
-  if (prevExam) {
-    const prevMarksRes = await pool.query(
-      'SELECT * FROM marks WHERE exam_session_id=$1 AND learner_id IN (SELECT id FROM learners WHERE class_id=$2)',
-      [prevExam.id, classId]
-    );
-    const prevMarksByLearner = {};
-    prevMarksRes.rows.forEach(m => {
-      prevMarksByLearner[m.learner_id] = prevMarksByLearner[m.learner_id] || [];
-      prevMarksByLearner[m.learner_id].push(Number(m.score));
+async function toggleTeacher(id, newActive) {
+  try {
+    await api(`/api/teachers/${id}/active`, { method: 'PATCH', body: JSON.stringify({ active: newActive }) });
+    loadTeachers();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+// ====== TEACHER ASSIGNMENTS ======
+function populateAssignmentSelects() {
+  const teacherSelect = document.getElementById('assignTeacher');
+  if (!teacherSelect) return;
+  teacherSelect.innerHTML = currentTeachers.map(t => `<option value="${t.id}">${t.full_name} (${t.serial_number})</option>`).join('');
+  const classSelect = document.getElementById('assignClass');
+  classSelect.innerHTML = currentClasses.map(c => `<option value="${c.id}" data-grade="${c.grade}">${c.stream_name} (Grade ${c.grade})</option>`).join('');
+  updateAssignSubjects();
+}
+
+function updateAssignSubjects() {
+  const classSelect = document.getElementById('assignClass');
+  const selectedOption = classSelect.options[classSelect.selectedIndex];
+  const grade = selectedOption ? selectedOption.dataset.grade : null;
+  const subjectSelect = document.getElementById('assignSubject');
+  subjectSelect.innerHTML = currentSubjects.filter(s => String(s.grade) === String(grade))
+    .map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+}
+
+document.getElementById('assignClass').addEventListener('change', updateAssignSubjects);
+
+async function loadAssignments() {
+  try {
+    const rows = await api('/api/teacher-assignments');
+    const tbody = document.querySelector('#assignmentTable tbody');
+    tbody.innerHTML = '';
+    rows.forEach(a => {
+      tbody.innerHTML += `<tr><td>${a.teacher_name}</td><td>${a.subject_name}</td><td>${a.stream_name} (Grade ${a.grade})</td>
+        <td><button class="danger" onclick="deleteAssignment(${a.id})">Remove</button></td></tr>`;
+    });
+  } catch (err) {
+    document.getElementById('assignMsg').innerHTML = `<div class="error">${err.message}</div>`;
+  }
+}
+
+document.getElementById('assignForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const teacher_id = Number(document.getElementById('assignTeacher').value);
+  const class_id = Number(document.getElementById('assignClass').value);
+  const subject_id = Number(document.getElementById('assignSubject').value);
+  const msg = document.getElementById('assignMsg');
+  try {
+    await api('/api/teacher-assignments', { method: 'POST', body: JSON.stringify({ teacher_id, class_id, subject_id }) });
+    msg.innerHTML = '<div class="success">Assigned.</div>';
+    loadAssignments();
+  } catch (err) {
+    msg.innerHTML = `<div class="error">${err.message}</div>`;
+  }
+});
+
+async function deleteAssignment(id) {
+  if (!confirm('Remove this assignment?')) return;
+  try {
+    await api(`/api/teacher-assignments/${id}`, { method: 'DELETE' });
+    loadAssignments();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+// ====== EXAM SESSIONS ======
+let currentExams = [];
+async function loadExams() {
+  try {
+    const exams = await api('/api/exam-sessions');
+    currentExams = exams;
+    const tbody = document.querySelector('#examTable tbody');
+    tbody.innerHTML = '';
+    exams.forEach(ex => {
+      tbody.innerHTML += `<tr><td>${ex.name}</td><td>${ex.is_open ? 'OPEN (teachers can enter marks)' : 'Closed'}</td>
+        <td><button onclick="toggleExam(${ex.id}, ${!ex.is_open})">${ex.is_open ? 'Close' : 'Open'}</button></td></tr>`;
+    });
+    populateMarksheetSelects();
+    populateAnalysisSelect();
+    populateReportExamSelect();
+  } catch (err) {
+    document.getElementById('examMsg').innerHTML = `<div class="error">${err.message}</div>`;
+  }
+}
+
+document.getElementById('examForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = document.getElementById('examName').value;
+  const msg = document.getElementById('examMsg');
+  try {
+    await api('/api/exam-sessions', { method: 'POST', body: JSON.stringify({ name }) });
+    msg.innerHTML = '<div class="success">Exam session created.</div>';
+    e.target.reset();
+    loadExams();
+  } catch (err) {
+    msg.innerHTML = `<div class="error">${err.message}</div>`;
+  }
+});
+
+async function toggleExam(id, newOpen) {
+  try {
+    await api(`/api/exam-sessions/${id}/toggle`, { method: 'PATCH', body: JSON.stringify({ is_open: newOpen }) });
+    loadExams();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+// ====== GRADING BANDS ======
+async function loadGradingBands() {
+  try {
+    const bands = await api('/api/grading-bands');
+    const tbody = document.querySelector('#gradingTable tbody');
+    tbody.innerHTML = '';
+    bands.forEach(b => {
+      tbody.innerHTML += `<tr><td>${b.min_score} - ${b.max_score}</td><td>${b.grade_letter}</td><td>${b.points}</td>
+        <td><button class="danger" onclick="deleteGradingBand(${b.id})">Delete</button></td></tr>`;
+    });
+  } catch (err) {
+    document.getElementById('gradingMsg').innerHTML = `<div class="error">${err.message}</div>`;
+  }
+}
+
+document.getElementById('gradingForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const min_score = Number(document.getElementById('gradeMin').value);
+  const max_score = Number(document.getElementById('gradeMax').value);
+  const grade_letter = document.getElementById('gradeLetter').value;
+  const points = Number(document.getElementById('gradePoints').value);
+  const msg = document.getElementById('gradingMsg');
+  try {
+    await api('/api/grading-bands', { method: 'POST', body: JSON.stringify({ min_score, max_score, grade_letter, points }) });
+    msg.innerHTML = '<div class="success">Grade band added.</div>';
+    e.target.reset();
+    loadGradingBands();
+  } catch (err) {
+    msg.innerHTML = `<div class="error">${err.message}</div>`;
+  }
+});
+
+async function deleteGradingBand(id) {
+  if (!confirm('Remove this grade band?')) return;
+  try {
+    await api(`/api/grading-bands/${id}`, { method: 'DELETE' });
+    loadGradingBands();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+// ====== MARK SHEET ======
+function populateMarksheetSelects() {
+  const classSelect = document.getElementById('marksheetClassSelect');
+  const examSelect = document.getElementById('marksheetExamSelect');
+  if (!classSelect || !examSelect) return;
+  classSelect.innerHTML = currentClasses.map(c => `<option value="${c.id}">${c.stream_name} (Grade ${c.grade})</option>`).join('');
+  examSelect.innerHTML = currentExams.map(ex => `<option value="${ex.id}">${ex.name}</option>`).join('');
+}
+
+async function loadMarksheet() {
+  const classId = document.getElementById('marksheetClassSelect').value;
+  const examId = document.getElementById('marksheetExamSelect').value;
+  const container = document.getElementById('marksheetContainer');
+  const msg = document.getElementById('marksheetMsg');
+  if (!classId || !examId) { msg.innerHTML = '<div class="error">Add a class and exam session first.</div>'; return; }
+  try {
+    const data = await api(`/api/marksheet/${classId}/${examId}`);
+    let html = '<table><thead><tr><th>Name</th><th>Admission #</th>';
+    data.subjects.forEach(s => { html += `<th>${s.name}</th>`; });
+    html += '</tr></thead><tbody>';
+    data.rows.forEach(row => {
+      html += `<tr><td>${row.learner.name}</td><td>${row.learner.admission_number}</td>`;
+      data.subjects.forEach((s, i) => {
+        const score = row.scores[i];
+        html += `<td style="cursor:pointer;text-decoration:underline;" onclick="editMark(${row.learner.id}, ${s.id}, ${examId}, ${score === null ? "'null'" : score})">${score === null ? '-' : score}</td>`;
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    container.innerHTML = html;
+    msg.innerHTML = '';
+  } catch (err) {
+    msg.innerHTML = `<div class="error">${err.message}</div>`;
+  }
+}
+
+function editMark(learnerId, subjectId, examId, currentScore) {
+  const newScore = prompt('Enter score:', currentScore === 'null' ? '' : currentScore);
+  if (newScore === null || newScore === '') return;
+  api('/api/marks/admin-override', {
+    method: 'PUT',
+    body: JSON.stringify({ exam_session_id: Number(examId), learner_id: learnerId, subject_id: subjectId, score: Number(newScore) })
+  }).then(loadMarksheet).catch(err => alert(err.message));
+}
+
+// ====== RESULTS ANALYSIS ======
+function populateAnalysisSelect() {
+  const examSelect = document.getElementById('analysisExamSelect');
+  const classSelect = document.getElementById('analysisClassSelect');
+  if (!examSelect || !classSelect) return;
+  examSelect.innerHTML = currentExams.map(ex => `<option value="${ex.id}">${ex.name}</option>`).join('');
+  classSelect.innerHTML = currentClasses.map(c => `<option value="${c.id}">${c.stream_name} (Grade ${c.grade})</option>`).join('');
+}
+
+async function loadAnalysis() {
+  const classId = document.getElementById('analysisClassSelect').value;
+  const examId = document.getElementById('analysisExamSelect').value;
+  const msg = document.getElementById('analysisMsg');
+  if (!classId || !examId) { msg.innerHTML = '<div class="error">Add a class and exam session first.</div>'; return; }
+  try {
+    const data = await api(`/api/analysis/class/${classId}/${examId}`);
+
+    const trendBox = document.getElementById('classTrendBox');
+    if (data.classTrend) {
+      const t = data.classTrend;
+      const direction = t.change > 0 ? 'improved' : (t.change < 0 ? 'declined' : 'stayed the same');
+      const color = t.change > 0 ? '#27ae60' : (t.change < 0 ? '#c0392b' : '#555');
+      trendBox.innerHTML = `<p style="color:${color}; font-weight:bold;">
+        Class average ${direction}: ${t.previousMean.toFixed(1)} (${t.previousExamName}) &rarr; ${t.currentMean.toFixed(1)} (this exam),
+        a change of ${t.change > 0 ? '+' : ''}${t.change.toFixed(1)}.
+      </p>`;
+    } else {
+      trendBox.innerHTML = `<p style="color:#555;">No previous exam session found for this class yet, so no trend to compare.</p>`;
+    }
+
+    const container = document.getElementById('learnerRankContainer');
+    if (data.learnerRanking.length) {
+      const subjectNames = data.learnerRanking[0].subjects.map(s => s.subject);
+      let html = '<table><thead><tr><th>Position</th><th>Name</th>';
+      subjectNames.forEach(name => { html += `<th>${name}</th>`; });
+      html += '<th>Average</th></tr></thead><tbody>';
+      data.learnerRanking.forEach(r => {
+        html += `<tr><td>${r.position}</td><td>${r.learner.name}</td>`;
+        r.subjects.forEach(s => { html += `<td>${s.score === null ? '-' : s.score}</td>`; });
+        html += `<td>${r.mean.toFixed(1)}</td></tr>`;
+      });
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    } else {
+      container.innerHTML = '<p>No learners found in this class.</p>';
+    }
+
+    const improvedBody = document.querySelector('#improvedTable tbody');
+    improvedBody.innerHTML = '';
+    data.mostImproved.forEach((r, i) => {
+      const changeColor = r.improvement > 0 ? '#27ae60' : (r.improvement < 0 ? '#c0392b' : '#555');
+      improvedBody.innerHTML += `<tr><td>${i + 1}</td><td>${r.learner.name}</td><td>${r.previousMean.toFixed(1)}</td><td>${r.currentMean.toFixed(1)}</td>
+        <td style="color:${changeColor};">${r.improvement > 0 ? '+' : ''}${r.improvement.toFixed(1)}</td></tr>`;
+    });
+    if (!data.mostImproved.length) {
+      improvedBody.innerHTML = '<tr><td colspan="5">No previous exam session to compare against yet.</td></tr>';
+    }
+
+    const subjectBody = document.querySelector('#subjectRankTable tbody');
+    subjectBody.innerHTML = '';
+    data.subjectRanking.forEach(s => {
+      subjectBody.innerHTML += `<tr><td>${s.subject}</td><td>${s.mean.toFixed(1)}</td></tr>`;
     });
 
-    mostImproved = learners.map(l => {
-      const currentScores = marksByLearner[l.id] ? Object.values(marksByLearner[l.id]) : [];
-      const currentMean = currentScores.length ? currentScores.reduce((a, b) => a + b, 0) / currentScores.length : null;
-      const prevScoresArr = prevMarksByLearner[l.id] || [];
-      const prevMean = prevScoresArr.length ? prevScoresArr.reduce((a, b) => a + b, 0) / prevScoresArr.length : null;
-      if (currentMean === null || prevMean === null) return null;
-      return { learner: l, previousMean: prevMean, currentMean, improvement: currentMean - prevMean };
-    }).filter(x => x !== null)
-      .sort((a, b) => b.improvement - a.improvement);
-
-    const currentAll = marks.map(m => Number(m.score));
-    const currentClassMean = currentAll.length ? currentAll.reduce((a, b) => a + b, 0) / currentAll.length : 0;
-    const prevAll = prevMarksRes.rows.map(m => Number(m.score));
-    const prevClassMean = prevAll.length ? prevAll.reduce((a, b) => a + b, 0) / prevAll.length : 0;
-
-    classTrend = {
-      previousExamName: prevExam.name,
-      previousMean: prevClassMean,
-      currentMean: currentClassMean,
-      change: currentClassMean - prevClassMean
-    };
+    msg.innerHTML = '';
+  } catch (err) {
+    msg.innerHTML = `<div class="error">${err.message}</div>`;
   }
-
-  res.json({ class: cls, learnerRanking, subjectRanking, mostImproved, classTrend });
-}));
-
-// ---------- INDIVIDUAL REPORT ----------
-app.get('/api/report/:learnerId/:examSessionId', requireRole('admin'), wrap(async (req, res) => {
-  const { learnerId, examSessionId } = req.params;
-  const learnerRes = await pool.query('SELECT * FROM learners WHERE id=$1 AND school_id=$2', [learnerId, req.user.school_id]);
-  const learner = learnerRes.rows[0];
-
-  const marksRes = await pool.query(`
-    SELECT m.*, s.name as subject_name FROM marks m JOIN subjects s ON s.id = m.subject_id
-    WHERE m.exam_session_id=$1 AND m.learner_id=$2
-  `, [examSessionId, learnerId]);
-
-  const withGrades = [];
-  for (const m of marksRes.rows) {
-    withGrades.push({ ...m, band: await scoreToBand(req.user.school_id, m.score) });
-  }
-
-  const classmatesRes = await pool.query('SELECT id FROM learners WHERE class_id=$1', [learner.class_id]);
-  const totals = [];
-  for (const c of classmatesRes.rows) {
-    const cmRes = await pool.query('SELECT score FROM marks WHERE exam_session_id=$1 AND learner_id=$2', [examSessionId, c.id]);
-    const cm = cmRes.rows;
-    totals.push({ id: c.id, mean: cm.length ? cm.reduce((a, m) => a + Number(m.score), 0) / cm.length : 0 });
-  }
-  totals.sort((a, b) => b.mean - a.mean);
-  const position = totals.findIndex(t => t.id == learnerId) + 1;
-
-  const historyRes = await pool.query(`
-    SELECT es.name as exam_name, es.id as exam_session_id, AVG(m.score) as average
-    FROM marks m JOIN exam_sessions es ON es.id = m.exam_session_id
-    WHERE m.learner_id=$1 GROUP BY es.id, es.name ORDER BY es.id
-  `, [learnerId]);
-
-  const remarkRes = await pool.query('SELECT * FROM report_remarks WHERE learner_id=$1 AND exam_session_id=$2', [learnerId, examSessionId]);
-
-  res.json({
-    learner,
-    marks: withGrades,
-    position,
-    totalInClass: classmatesRes.rows.length,
-    history: historyRes.rows,
-    remark: remarkRes.rows[0] || {}
-  });
-}));
-
-app.post('/api/report/:learnerId/:examSessionId/remarks', requireRole('admin'), wrap(async (req, res) => {
-  const { learnerId, examSessionId } = req.params;
-  const { class_teacher_remark, head_teacher_remark } = req.body;
-  await pool.query(`
-    INSERT INTO report_remarks (school_id, learner_id, exam_session_id, class_teacher_remark, head_teacher_remark)
-    VALUES ($1,$2,$3,$4,$5)
-  `, [req.user.school_id, learnerId, examSessionId, class_teacher_remark, head_teacher_remark]);
-  res.json({ ok: true });
-}));
-
-app.get('/api/school', requireRole('admin'), wrap(async (req, res) => {
-  const { rows } = await pool.query('SELECT * FROM schools WHERE id=$1', [req.user.school_id]);
-  res.json(rows[0]);
-}));
-
-app.post('/api/timetable', requireRole('admin'), wrap(async (req, res) => {
-  const { class_id, day_of_week, period_number, subject_id, teacher_id } = req.body;
-  await pool.query(
-    'DELETE FROM timetable_entries WHERE school_id=$1 AND class_id=$2 AND day_of_week=$3 AND period_number=$4',
-    [req.user.school_id, class_id, day_of_week, period_number]
-  );
-  await pool.query(
-    `INSERT INTO timetable_entries (school_id, class_id, day_of_week, period_number, subject_id, teacher_id)
-     VALUES ($1,$2,$3,$4,$5,$6)`,
-    [req.user.school_id, class_id, day_of_week, period_number, subject_id, teacher_id]
-  );
-  res.json({ ok: true });
-}));
-
-app.get('/api/timetable/:classId', requireRole('admin', 'teacher'), wrap(async (req, res) => {
-  const { rows } = await pool.query(`
-    SELECT te.*, s.name as subject_name, t.full_name as teacher_name
-    FROM timetable_entries te
-    LEFT JOIN subjects s ON s.id = te.subject_id
-    LEFT JOIN teachers t ON t.id = te.teacher_id
-    WHERE te.school_id=$1 AND te.class_id=$2
-  `, [req.user.school_id, req.params.classId]);
-  res.json(rows);
-}));
-
-app.delete('/api/timetable/:id', requireRole('admin'), wrap(async (req, res) => {
-  await pool.query('DELETE FROM timetable_entries WHERE id=$1 AND school_id=$2', [req.params.id, req.user.school_id]);
-  res.json({ ok: true });
-}));
-
-
-// ---------- School profile ----------
-app.patch('/api/school/name', requireRole('admin'), wrap(async (req, res) => {
-  await pool.query('UPDATE schools SET name=$1 WHERE id=$2', [req.body.name, req.user.school_id]);
-  res.json({ ok: true });
-}));
-
-app.get('/api/health', (req, res) => res.json({ ok: true }));
-
-module.exports = app;
-
-// Only start a local server when run directly (e.g. `node server.js`).
-// On Vercel, api/index.js imports `app` instead and Vercel handles the listening.
-if (require.main === module) {
-  const PORT = process.env.PORT || 4000;
-  app.listen(PORT, () => console.log(`SIS backend running on http://localhost:${PORT}`));
 }
+
+// ====== INDIVIDUAL REPORT ======
+function populateReportClassSelect() {
+  const classSelect = document.getElementById('reportClassSelect');
+  if (!classSelect) return;
+  classSelect.innerHTML = currentClasses.map(c => `<option value="${c.id}">${c.stream_name} (Grade ${c.grade})</option>`).join('');
+  updateReportLearnerSelect();
+}
+
+function populateReportExamSelect() {
+  const examSelect = document.getElementById('reportExamSelect');
+  if (!examSelect) return;
+  examSelect.innerHTML = currentExams.map(ex => `<option value="${ex.id}">${ex.name}</option>`).join('');
+}
+
+async function updateReportLearnerSelect() {
+  const classId = document.getElementById('reportClassSelect').value;
+  const learnerSelect = document.getElementById('reportLearnerSelect');
+  if (!classId) { learnerSelect.innerHTML = ''; return; }
+  try {
+    const learners = await api(`/api/classes/${classId}/list`);
+    learnerSelect.innerHTML = learners.map(l => `<option value="${l.id}">${l.name} (${l.admission_number})</option>`).join('');
+  } catch (err) {
+    learnerSelect.innerHTML = '';
+  }
+}
+
+document.getElementById('reportClassSelect').addEventListener('change', updateReportLearnerSelect);
+
+function buildLineGraph(history) {
+  if (!history.length) return '<p>No exam history yet for this learner.</p>';
+  const width = 600, height = 220, padTop = 20, padBottom = 40, padLeft = 40, padRight = 20;
+  const plotWidth = width - padLeft - padRight;
+  const plotHeight = height - padTop - padBottom;
+  const maxVal = 100;
+  const points = history.map((h, i) => {
+    const x = padLeft + (history.length === 1 ? plotWidth / 2 : (i / (history.length - 1)) * plotWidth);
+    const avg = Math.min(Number(h.average), 100);
+    const y = padTop + plotHeight - (avg / maxVal) * plotHeight;
+    return { x, y, label: h.exam_name, value: Number(h.average).toFixed(1) };
+  });
+  const polylinePoints = points.map(p => `${p.x},${p.y}`).join(' ');
+  let svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="max-width:100%;">`;
+  svg += `<line x1="${padLeft}" y1="${padTop}" x2="${padLeft}" y2="${padTop + plotHeight}" stroke="#ccc"/>`;
+  svg += `<line x1="${padLeft}" y1="${padTop + plotHeight}" x2="${padLeft + plotWidth}" y2="${padTop + plotHeight}" stroke="#ccc"/>`;
+  svg += `<polyline points="${polylinePoints}" fill="none" stroke="#1e3a5f" stroke-width="2"/>`;
+  points.forEach(p => {
+    svg += `<circle cx="${p.x}" cy="${p.y}" r="4" fill="#1e3a5f"/>`;
+    svg += `<text x="${p.x}" y="${p.y - 10}" font-size="11" text-anchor="middle">${p.value}</text>`;
+    const shortLabel = p.label.length > 14 ? p.label.slice(0, 14) + '…' : p.label;
+    svg += `<text x="${p.x}" y="${padTop + plotHeight + 15}" font-size="10" text-anchor="middle">${shortLabel}</text>`;
+  });
+  svg += `</svg>`;
+  return svg;
+}
+
+let currentReportLearnerId = null;
+let currentReportExamId = null;
+
+async function loadReport() {
+  const learnerId = document.getElementById('reportLearnerSelect').value;
+  const examId = document.getElementById('reportExamSelect').value;
+  const msg = document.getElementById('reportMsg');
+  if (!learnerId || !examId) { msg.innerHTML = '<div class="error">Choose a class, learner, and exam session first.</div>'; return; }
+  try {
+    const data = await api(`/api/report/${learnerId}/${examId}`);
+    currentReportLearnerId = learnerId;
+    currentReportExamId = examId;
+
+    document.getElementById('reportLearnerName').textContent = data.learner.name;
+    document.getElementById('reportLearnerMeta').textContent =
+      `Admission #: ${data.learner.admission_number} | UPI: ${data.learner.upi_number} | Sex: ${data.learner.sex || '-'}`;
+
+    const subjBody = document.querySelector('#reportSubjectsTable tbody');
+    subjBody.innerHTML = '';
+    data.marks.forEach(m => {
+      const gradeLabel = m.band ? `${m.band.grade_letter} (${m.band.points} pts)` : '-';
+      subjBody.innerHTML += `<tr><td>${m.subject_name}</td><td>${m.score}</td><td>${gradeLabel}</td></tr>`;
+    });
+
+    document.getElementById('reportPosition').textContent =
+      `Class Position: ${data.position} out of ${data.totalInClass}`;
+
+    document.getElementById('reportGraph').innerHTML = buildLineGraph(data.history);
+
+    document.getElementById('classTeacherRemark').value = data.remark.class_teacher_remark || '';
+    document.getElementById('headTeacherRemark').value = data.remark.head_teacher_remark || '';
+
+    document.getElementById('reportOutput').style.display = 'block';
+    msg.innerHTML = '';
+  } catch (err) {
+    msg.innerHTML = `<div class="error">${err.message}</div>`;
+  }
+}
+
+async function saveRemarks() {
+  if (!currentReportLearnerId || !currentReportExamId) return;
+  const class_teacher_remark = document.getElementById('classTeacherRemark').value;
+  const head_teacher_remark = document.getElementById('headTeacherRemark').value;
+  try {
+    await api(`/api/report/${currentReportLearnerId}/${currentReportExamId}/remarks`, {
+      method: 'POST',
+      body: JSON.stringify({ class_teacher_remark, head_teacher_remark })
+    });
+    document.getElementById('reportMsg').innerHTML = '<div class="success">Remarks saved.</div>';
+  } catch (err) {
+    document.getElementById('reportMsg').innerHTML = `<div class="error">${err.message}</div>`;
+  }
+}
+
+// ====== TIMETABLE ======
+const TIMETABLE_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+const TIMETABLE_PERIODS = [1, 2, 3, 4, 5, 6, 7, 8];
+let currentTimetableSubjects = [];
+
+function populateTimetableClassSelect() {
+  const select = document.getElementById('timetableClassSelect');
+  if (!select) return;
+  select.innerHTML = currentClasses.map(c => `<option value="${c.id}" data-grade="${c.grade}">${c.stream_name} (Grade ${c.grade})</option>`).join('');
+  loadTimetable();
+}
+
+document.getElementById('timetableClassSelect') && document.getElementById('timetableClassSelect').addEventListener('change', loadTimetable);
+
+async function loadTimetable() {
+  const select = document.getElementById('timetableClassSelect');
+  const classId = select.value;
+  const msg = document.getElementById('timetableMsg');
+  const container = document.getElementById('timetableContainer');
+  if (!classId) { container.innerHTML = ''; return; }
+  const selectedOption = select.options[select.selectedIndex];
+  const grade = selectedOption ? selectedOption.dataset.grade : null;
+  currentTimetableSubjects = currentSubjects.filter(s => String(s.grade) === String(grade));
+  try {
+    const entries = await api(`/api/timetable/${classId}`);
+    const entryMap = {};
+    entries.forEach(e => { entryMap[`${e.day_of_week}-${e.period_number}`] = e; });
+    let html = '<table><thead><tr><th>Period</th>';
+    TIMETABLE_DAYS.forEach(d => { html += `<th>${d}</th>`; });
+    html += '</tr></thead><tbody>';
+    TIMETABLE_PERIODS.forEach(p => {
+      html += `<tr><td>${p}</td>`;
+      TIMETABLE_DAYS.forEach(d => {
+        const e = entryMap[`${d}-${p}`];
+        const label = e ? `${e.subject_name || '?'}<br><small>${e.teacher_name || ''}</small>` : '-';
+        html += `<td style="cursor:pointer;text-align:center;" onclick="editTimetableCell(${classId}, '${d}', ${p})">${label}</td>`;
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    container.innerHTML = html;
+    msg.innerHTML = '';
+  } catch (err) {
+    msg.innerHTML = `<div class="error">${err.message}</div>`;
+  }
+}
+
+function editTimetableCell(classId, day, period) {
+  if (!currentTimetableSubjects.length) { alert('Add subjects for this grade first, under the Subjects tab.'); return; }
+  const subjectList = currentTimetableSubjects.map((s, i) => `${i + 1}. ${s.name}`).join('\n');
+  const subjIdx = prompt(`Choose subject number for ${day} period ${period}:\n${subjectList}`);
+  if (subjIdx === null) return;
+  const subject = currentTimetableSubjects[Number(subjIdx) - 1];
+  if (!subject) { alert('Invalid subject number.'); return; }
+
+  if (!currentTeachers.length) { alert('Add teachers first, under the Teachers tab.'); return; }
+  const teacherList = currentTeachers.map((t, i) => `${i + 1}. ${t.full_name} (${t.serial_number})`).join('\n');
+  const teachIdx = prompt(`Choose teacher number:\n${teacherList}`);
+  if (teachIdx === null) return;
+  const teacher = currentTeachers[Number(teachIdx) - 1];
+  if (!teacher) { alert('Invalid teacher number.'); return; }
+
+  api('/api/timetable', {
+    method: 'POST',
+    body: JSON.stringify({ class_id: classId, day_of_week: day, period_number: period, subject_id: subject.id, teacher_id: teacher.id })
+  }).then(loadTimetable).catch(err => alert(err.message));
+}
+
+// ====== SCHOOL NAME HEADER ======
+let schoolName = '';
+async function loadSchoolInfo() {
+  try {
+    const data = await api('/api/school');
+    schoolName = data.name;
+    const upper = schoolName.toUpperCase();
+    ['marksheetSchoolHeader', 'analysisSchoolHeader', 'reportSchoolHeader'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = upper;
+    });
+  } catch (err) {
+    // If this fails, forms just show without the header - not critical.
+  }
+}
+</script>
+</body>
+</html>
