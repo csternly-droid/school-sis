@@ -197,6 +197,23 @@ app.post('/api/teacher-assignments', requireRole('admin'), wrap(async (req, res)
   );
   res.json({ ok: true });
 }));
+app.get('/api/teacher-assignments', requireRole('admin'), wrap(async (req, res) => {
+  const { rows } = await pool.query(`
+    SELECT ta.*, t.full_name as teacher_name, s.name as subject_name, c.stream_name, c.grade
+    FROM teacher_assignments ta
+    JOIN teachers t ON t.id = ta.teacher_id
+    JOIN subjects s ON s.id = ta.subject_id
+    JOIN classes c ON c.id = ta.class_id
+    WHERE ta.school_id = $1
+  `, [req.user.school_id]);
+  res.json(rows);
+}));
+
+app.delete('/api/teacher-assignments/:id', requireRole('admin'), wrap(async (req, res) => {
+  await pool.query('DELETE FROM teacher_assignments WHERE id=$1 AND school_id=$2', [req.params.id, req.user.school_id]);
+  res.json({ ok: true });
+}));
+
 
 app.get('/api/teacher-assignments/mine', requireRole('teacher'), wrap(async (req, res) => {
   const { rows } = await pool.query(`
