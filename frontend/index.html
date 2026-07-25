@@ -26,6 +26,13 @@
   form { display: flex; flex-direction: column; gap: 4px; max-width: 400px; }
   .row { display: flex; gap: 8px; }
   .row > * { flex: 1; }
+  textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; min-height: 60px; }
+  @media print {
+    body * { visibility: hidden; }
+    #reportOutput, #reportOutput * { visibility: visible; }
+    #reportOutput { position: absolute; left: 0; top: 0; width: 100%; }
+    .no-print { display: none !important; }
+  }
 </style>
 </head>
 <body>
@@ -60,6 +67,7 @@
       <button data-tab="grading">Grading</button>
       <button data-tab="marksheet">Mark Sheet</button>
       <button data-tab="analysis">Analysis</button>
+      <button data-tab="report">Report</button>
     </nav>
 
     <!-- CLASSES TAB -->
@@ -202,24 +210,17 @@
     <div id="tab-analysis" class="tab hidden">
       <h2>Results Analysis</h2>
       <div class="row">
+        <select id="analysisClassSelect"></select>
         <select id="analysisExamSelect"></select>
-        <select id="analysisGradeSelect">
-          <option value="1">Grade 1</option>
-          <option value="2">Grade 2</option>
-          <option value="3">Grade 3</option>
-          <option value="4">Grade 4</option>
-          <option value="5">Grade 5</option>
-          <option value="6">Grade 6</option>
-          <option value="7">Grade 7</option>
-          <option value="8">Grade 8</option>
-          <option value="9">Grade 9</option>
-        </select>
         <button onclick="loadAnalysis()">Run Analysis</button>
       </div>
       <div id="analysisMsg"></div>
-      <h3>Learner Ranking (best to worst)</h3>
-      <table id="learnerRankTable">
-        <thead><tr><th>Position</th><th>Name</th><th>Average Score</th></tr></thead>
+      <div id="classTrendBox"></div>
+      <h3>Learner Ranking (best to worst), with each subject shown</h3>
+      <div id="learnerRankContainer" style="overflow-x:auto;"></div>
+      <h3>Most Improved Learners (vs previous exam)</h3>
+      <table id="improvedTable">
+        <thead><tr><th>Position</th><th>Name</th><th>Previous Average</th><th>Current Average</th><th>Change</th></tr></thead>
         <tbody></tbody>
       </table>
       <h3>Subject Ranking (best to worst, by mean)</h3>
@@ -227,6 +228,39 @@
         <thead><tr><th>Subject</th><th>Average Score</th></tr></thead>
         <tbody></tbody>
       </table>
+    </div>
+
+    <!-- REPORT TAB -->
+    <div id="tab-report" class="tab hidden">
+      <h2>Individual Learner Report</h2>
+      <div class="row no-print">
+        <select id="reportClassSelect"></select>
+        <select id="reportLearnerSelect"></select>
+        <select id="reportExamSelect"></select>
+        <button onclick="loadReport()">Generate Report</button>
+      </div>
+      <div id="reportMsg" class="no-print"></div>
+
+      <div id="reportOutput" style="display:none; margin-top:20px; border:1px solid #ddd; padding:20px; border-radius:8px;">
+        <h2 id="reportLearnerName"></h2>
+        <p id="reportLearnerMeta"></p>
+        <table id="reportSubjectsTable">
+          <thead><tr><th>Subject</th><th>Score</th><th>Grade</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <p id="reportPosition" style="font-weight:bold;"></p>
+        <h3>Performance Over Time</h3>
+        <div id="reportGraph"></div>
+        <h3>Remarks</h3>
+        <label>Class Teacher's Remark</label>
+        <textarea id="classTeacherRemark"></textarea>
+        <label>Head Teacher's Remark</label>
+        <textarea id="headTeacherRemark"></textarea>
+        <div class="no-print">
+          <button onclick="saveRemarks()">Save Remarks</button>
+          <button onclick="window.print()">Print / Download Report</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -314,6 +348,7 @@ async function loadClasses() {
     if (classes.length) loadLearners(select.value);
     populateAssignmentSelects();
     populateMarksheetSelects();
+    populateReportClassSelect();
   } catch (err) {
     document.getElementById('classMsg').innerHTML = `<div class="error">${err.message}</div>`;
   }
@@ -596,6 +631,7 @@ async function loadExams() {
     });
     populateMarksheetSelects();
     populateAnalysisSelect();
+    populateReportExamSelect();
   } catch (err) {
     document.getElementById('examMsg').innerHTML = `<div class="error">${err.message}</div>`;
   }
@@ -714,30 +750,179 @@ function editMark(learnerId, subjectId, examId, currentScore) {
 // ====== RESULTS ANALYSIS ======
 function populateAnalysisSelect() {
   const examSelect = document.getElementById('analysisExamSelect');
-  if (!examSelect) return;
+  const classSelect = document.getElementById('analysisClassSelect');
+  if (!examSelect || !classSelect) return;
   examSelect.innerHTML = currentExams.map(ex => `<option value="${ex.id}">${ex.name}</option>`).join('');
+  classSelect.innerHTML = currentClasses.map(c => `<option value="${c.id}">${c.stream_name} (Grade ${c.grade})</option>`).join('');
 }
 
 async function loadAnalysis() {
+  const classId = document.getElementById('analysisClassSelect').value;
   const examId = document.getElementById('analysisExamSelect').value;
-  const grade = document.getElementById('analysisGradeSelect').value;
   const msg = document.getElementById('analysisMsg');
-  if (!examId) { msg.innerHTML = '<div class="error">Create an exam session first.</div>'; return; }
+  if (!classId || !examId) { msg.innerHTML = '<div class="error">Add a class and exam session first.</div>'; return; }
   try {
-    const data = await api(`/api/analysis/${examId}/grade/${grade}`);
-    const learnerBody = document.querySelector('#learnerRankTable tbody');
-    learnerBody.innerHTML = '';
-    data.learnerRanking.forEach(r => {
-      learnerBody.innerHTML += `<tr><td>${r.position}</td><td>${r.learner.name}</td><td>${r.mean.toFixed(1)}</td></tr>`;
+    const data = await api(`/api/analysis/class/${classId}/${examId}`);
+
+    const trendBox = document.getElementById('classTrendBox');
+    if (data.classTrend) {
+      const t = data.classTrend;
+      const direction = t.change > 0 ? 'improved' : (t.change < 0 ? 'declined' : 'stayed the same');
+      const color = t.change > 0 ? '#27ae60' : (t.change < 0 ? '#c0392b' : '#555');
+      trendBox.innerHTML = `<p style="color:${color}; font-weight:bold;">
+        Class average ${direction}: ${t.previousMean.toFixed(1)} (${t.previousExamName}) &rarr; ${t.currentMean.toFixed(1)} (this exam),
+        a change of ${t.change > 0 ? '+' : ''}${t.change.toFixed(1)}.
+      </p>`;
+    } else {
+      trendBox.innerHTML = `<p style="color:#555;">No previous exam session found for this class yet, so no trend to compare.</p>`;
+    }
+
+    const container = document.getElementById('learnerRankContainer');
+    if (data.learnerRanking.length) {
+      const subjectNames = data.learnerRanking[0].subjects.map(s => s.subject);
+      let html = '<table><thead><tr><th>Position</th><th>Name</th>';
+      subjectNames.forEach(name => { html += `<th>${name}</th>`; });
+      html += '<th>Average</th></tr></thead><tbody>';
+      data.learnerRanking.forEach(r => {
+        html += `<tr><td>${r.position}</td><td>${r.learner.name}</td>`;
+        r.subjects.forEach(s => { html += `<td>${s.score === null ? '-' : s.score}</td>`; });
+        html += `<td>${r.mean.toFixed(1)}</td></tr>`;
+      });
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    } else {
+      container.innerHTML = '<p>No learners found in this class.</p>';
+    }
+
+    const improvedBody = document.querySelector('#improvedTable tbody');
+    improvedBody.innerHTML = '';
+    data.mostImproved.forEach((r, i) => {
+      const changeColor = r.improvement > 0 ? '#27ae60' : (r.improvement < 0 ? '#c0392b' : '#555');
+      improvedBody.innerHTML += `<tr><td>${i + 1}</td><td>${r.learner.name}</td><td>${r.previousMean.toFixed(1)}</td><td>${r.currentMean.toFixed(1)}</td>
+        <td style="color:${changeColor};">${r.improvement > 0 ? '+' : ''}${r.improvement.toFixed(1)}</td></tr>`;
     });
+    if (!data.mostImproved.length) {
+      improvedBody.innerHTML = '<tr><td colspan="5">No previous exam session to compare against yet.</td></tr>';
+    }
+
     const subjectBody = document.querySelector('#subjectRankTable tbody');
     subjectBody.innerHTML = '';
     data.subjectRanking.forEach(s => {
       subjectBody.innerHTML += `<tr><td>${s.subject}</td><td>${s.mean.toFixed(1)}</td></tr>`;
     });
+
     msg.innerHTML = '';
   } catch (err) {
     msg.innerHTML = `<div class="error">${err.message}</div>`;
+  }
+}
+
+// ====== INDIVIDUAL REPORT ======
+function populateReportClassSelect() {
+  const classSelect = document.getElementById('reportClassSelect');
+  if (!classSelect) return;
+  classSelect.innerHTML = currentClasses.map(c => `<option value="${c.id}">${c.stream_name} (Grade ${c.grade})</option>`).join('');
+  updateReportLearnerSelect();
+}
+
+function populateReportExamSelect() {
+  const examSelect = document.getElementById('reportExamSelect');
+  if (!examSelect) return;
+  examSelect.innerHTML = currentExams.map(ex => `<option value="${ex.id}">${ex.name}</option>`).join('');
+}
+
+async function updateReportLearnerSelect() {
+  const classId = document.getElementById('reportClassSelect').value;
+  const learnerSelect = document.getElementById('reportLearnerSelect');
+  if (!classId) { learnerSelect.innerHTML = ''; return; }
+  try {
+    const learners = await api(`/api/classes/${classId}/list`);
+    learnerSelect.innerHTML = learners.map(l => `<option value="${l.id}">${l.name} (${l.admission_number})</option>`).join('');
+  } catch (err) {
+    learnerSelect.innerHTML = '';
+  }
+}
+
+document.getElementById('reportClassSelect').addEventListener('change', updateReportLearnerSelect);
+
+function buildLineGraph(history) {
+  if (!history.length) return '<p>No exam history yet for this learner.</p>';
+  const width = 600, height = 220, padTop = 20, padBottom = 40, padLeft = 40, padRight = 20;
+  const plotWidth = width - padLeft - padRight;
+  const plotHeight = height - padTop - padBottom;
+  const maxVal = 100;
+  const points = history.map((h, i) => {
+    const x = padLeft + (history.length === 1 ? plotWidth / 2 : (i / (history.length - 1)) * plotWidth);
+    const avg = Math.min(Number(h.average), 100);
+    const y = padTop + plotHeight - (avg / maxVal) * plotHeight;
+    return { x, y, label: h.exam_name, value: Number(h.average).toFixed(1) };
+  });
+  const polylinePoints = points.map(p => `${p.x},${p.y}`).join(' ');
+  let svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="max-width:100%;">`;
+  svg += `<line x1="${padLeft}" y1="${padTop}" x2="${padLeft}" y2="${padTop + plotHeight}" stroke="#ccc"/>`;
+  svg += `<line x1="${padLeft}" y1="${padTop + plotHeight}" x2="${padLeft + plotWidth}" y2="${padTop + plotHeight}" stroke="#ccc"/>`;
+  svg += `<polyline points="${polylinePoints}" fill="none" stroke="#1e3a5f" stroke-width="2"/>`;
+  points.forEach(p => {
+    svg += `<circle cx="${p.x}" cy="${p.y}" r="4" fill="#1e3a5f"/>`;
+    svg += `<text x="${p.x}" y="${p.y - 10}" font-size="11" text-anchor="middle">${p.value}</text>`;
+    const shortLabel = p.label.length > 14 ? p.label.slice(0, 14) + '…' : p.label;
+    svg += `<text x="${p.x}" y="${padTop + plotHeight + 15}" font-size="10" text-anchor="middle">${shortLabel}</text>`;
+  });
+  svg += `</svg>`;
+  return svg;
+}
+
+let currentReportLearnerId = null;
+let currentReportExamId = null;
+
+async function loadReport() {
+  const learnerId = document.getElementById('reportLearnerSelect').value;
+  const examId = document.getElementById('reportExamSelect').value;
+  const msg = document.getElementById('reportMsg');
+  if (!learnerId || !examId) { msg.innerHTML = '<div class="error">Choose a class, learner, and exam session first.</div>'; return; }
+  try {
+    const data = await api(`/api/report/${learnerId}/${examId}`);
+    currentReportLearnerId = learnerId;
+    currentReportExamId = examId;
+
+    document.getElementById('reportLearnerName').textContent = data.learner.name;
+    document.getElementById('reportLearnerMeta').textContent =
+      `Admission #: ${data.learner.admission_number} | UPI: ${data.learner.upi_number} | Sex: ${data.learner.sex || '-'}`;
+
+    const subjBody = document.querySelector('#reportSubjectsTable tbody');
+    subjBody.innerHTML = '';
+    data.marks.forEach(m => {
+      const gradeLabel = m.band ? `${m.band.grade_letter} (${m.band.points} pts)` : '-';
+      subjBody.innerHTML += `<tr><td>${m.subject_name}</td><td>${m.score}</td><td>${gradeLabel}</td></tr>`;
+    });
+
+    document.getElementById('reportPosition').textContent =
+      `Class Position: ${data.position} out of ${data.totalInClass}`;
+
+    document.getElementById('reportGraph').innerHTML = buildLineGraph(data.history);
+
+    document.getElementById('classTeacherRemark').value = data.remark.class_teacher_remark || '';
+    document.getElementById('headTeacherRemark').value = data.remark.head_teacher_remark || '';
+
+    document.getElementById('reportOutput').style.display = 'block';
+    msg.innerHTML = '';
+  } catch (err) {
+    msg.innerHTML = `<div class="error">${err.message}</div>`;
+  }
+}
+
+async function saveRemarks() {
+  if (!currentReportLearnerId || !currentReportExamId) return;
+  const class_teacher_remark = document.getElementById('classTeacherRemark').value;
+  const head_teacher_remark = document.getElementById('headTeacherRemark').value;
+  try {
+    await api(`/api/report/${currentReportLearnerId}/${currentReportExamId}/remarks`, {
+      method: 'POST',
+      body: JSON.stringify({ class_teacher_remark, head_teacher_remark })
+    });
+    document.getElementById('reportMsg').innerHTML = '<div class="success">Remarks saved.</div>';
+  } catch (err) {
+    document.getElementById('reportMsg').innerHTML = `<div class="error">${err.message}</div>`;
   }
 }
 </script>

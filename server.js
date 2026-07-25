@@ -498,6 +498,11 @@ app.post('/api/report/:learnerId/:examSessionId/remarks', requireRole('admin'), 
   res.json({ ok: true });
 }));
 
+app.get('/api/school', requireRole('admin'), wrap(async (req, res) => {
+  const { rows } = await pool.query('SELECT * FROM schools WHERE id=$1', [req.user.school_id]);
+  res.json(rows[0]);
+}));
+
 // ---------- School profile ----------
 app.patch('/api/school/name', requireRole('admin'), wrap(async (req, res) => {
   await pool.query('UPDATE schools SET name=$1 WHERE id=$2', [req.body.name, req.user.school_id]);
