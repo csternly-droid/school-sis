@@ -195,6 +195,8 @@
 
     <!-- MARK SHEET TAB -->
     <div id="tab-marksheet" class="tab hidden">
+
+    <h2 id="marksheetSchoolHeader" style="text-align:center;"></h2>
       <h2>Mark Sheet</h2>
       <p>Click any score to correct it yourself (works even after the exam session is closed).</p>
       <div class="row">
@@ -208,6 +210,7 @@
 
     <!-- ANALYSIS TAB -->
     <div id="tab-analysis" class="tab hidden">
+    <h2 id="analysisSchoolHeader" style="text-align:center;"></h2>
       <h2>Results Analysis</h2>
       <div class="row">
         <select id="analysisClassSelect"></select>
@@ -242,6 +245,7 @@
       <div id="reportMsg" class="no-print"></div>
 
       <div id="reportOutput" style="display:none; margin-top:20px; border:1px solid #ddd; padding:20px; border-radius:8px;">
+        <h2 id="reportSchoolHeader" style="text-align:center;"></h2>
         <h2 id="reportLearnerName"></h2>
         <p id="reportLearnerMeta"></p>
         <table id="reportSubjectsTable">
@@ -315,6 +319,7 @@ function showDashboard() {
   loadAssignments();
   loadExams();
   loadGradingBands();
+  loadSchoolInfo();
 }
 
 // If already logged in from before, skip straight to dashboard
@@ -923,6 +928,22 @@ async function saveRemarks() {
     document.getElementById('reportMsg').innerHTML = '<div class="success">Remarks saved.</div>';
   } catch (err) {
     document.getElementById('reportMsg').innerHTML = `<div class="error">${err.message}</div>`;
+  }
+}
+
+// ====== SCHOOL NAME HEADER ======
+let schoolName = '';
+async function loadSchoolInfo() {
+  try {
+    const data = await api('/api/school');
+    schoolName = data.name;
+    const upper = schoolName.toUpperCase();
+    ['marksheetSchoolHeader', 'analysisSchoolHeader', 'reportSchoolHeader'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = upper;
+    });
+  } catch (err) {
+    // If this fails, forms just show without the header - not critical.
   }
 }
 </script>

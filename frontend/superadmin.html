@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Super Admin - School SIS</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; margin: 0; background: #f4f6f8; color: #222; }
+  .container { max-width: 700px; margin: 40px auto; padding: 0 16px; }
+  .card { background: white; padding: 24px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+  input { padding: 8px; margin: 4px 0; width: 100%; border: 1px solid #ccc; border-radius: 4px; }
+  button { background: #1e3a5f; color: white; border: none; padding: 10px 16px; border-radius: 4px; cursor: pointer; margin-top: 8px; }
+  button:hover { opacity: 0.9; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid #eee; }
+  .error { color: #c0392b; margin-top: 8px; }
+  .success { color: #27ae60; margin-top: 8px; }
+  .hidden { display: none; }
+  form { display: flex; flex-direction: column; gap: 4px; max-width: 400px; }
+  h1 { color: #1e3a5f; }
+</style>
+</head>
+<body>
+
+<!-- ===== LOGIN SCREEN ===== -->
+<div id="loginScreen" class="container">
+  <div class="card">
+    <h1>Super Admin</h1>
+    <form id="loginForm">
+      <label>Username</label>
+      <input type="text" id="loginUsername" required>
+      <label>Password</label>
+      <input type="password" id="loginPassword" required>
+      <button type="submit">Log In</button>
+    </form>
+    <div id="loginError" class="error"></div>
+  </div>
+</div>
+
+<!-- ===== DASHBOARD ===== -->
+<div id="dashboard" class="container hidden">
+  <div class="card">
+    <h1>Manage Schools</h1>
+    <p>Create a new school below. This generates the school's ID and its first admin login — give those to the school.</p>
+    <form id="schoolForm">
+      <label>School Name</label>
+      <input type="text" id="schoolName" required>
+      <label>Admin Username (for that school)</label>
+      <input type="text" id="adminUsername" required>
+      <label>Admin Password (for that school)</label>
+      <input type="text" id="adminPassword" required>
+      <button type="submit">Create School</button>
+    </form>
+    <div id="schoolMsg"></div>
+  </div>
+
+  <div class="card">
+    <h2>All Schools</h2>
+    <table id="schoolTable">
+      <thead><tr><th>School ID</th><th>Name</th><th>Created</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const API_BASE = 'https://school-sis-fawn.vercel.app';
+
+function saveToken(token) { localStorage.setItem('sis_superadmin_token', token); }
+function getToken() { return localStorage.getItem('sis_superadmin_token'); }
+
+async function api(path, options = {}) {
+  const headers = options.headers || {};
+  headers['Content-Type'] = 'application/json';
+  const token = getToken();
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  const res = await fetch(API_BASE + path, { ...options, headers });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const username = document.getElementById('loginUsername').value;
+  const password = document.getElementById('loginPassword').value;
+  const errorBox = document.getElementById('loginError');
+  errorBox.textContent = '';
+  try {
+    const data = await api('/api/login/superadmin', {
+      method: 'POST',
+      body: JSON.stringify({ username, password })
+    });
+    saveToken(data.token);
+    showDashboard();
+  } catch (err) {
+    errorBox.textContent = err.message;
+  }
+});
+
+function showDashboard() {
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('dashboard').classList.remove('hidden');
+  loadSchools();
+}
+
+if (getToken()) showDashboard();
+
+async function loadSchools() {
+  try {
+    const schools = await api('/api/schools');
+    const tbody = document.querySelector('#schoolTable tbody');
+    tbody.innerHTML = '';
+    schools.forEach(s => {
+      const created = new Date(s.created_at).toLocaleDateString();
+      tbody.innerHTML += `<tr><td>${s.id}</td><td>${s.name}</td><td>${created}</td></tr>`;
+    });
+  } catch (err) {
+    document.getElementById('schoolMsg').innerHTML = `<div class="error">${err.message}</div>`;
+  }
+}
+
+document.getElementById('schoolForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = document.getElementById('schoolName').value;
+  const admin_username = document.getElementById('adminUsername').value;
+  const admin_password = document.getElementById('adminPassword').value;
+  const msg = document.getElementById('schoolMsg');
+  try {
+    const result = await api('/api/schools', {
+      method: 'POST',
+      body: JSON.stringify({ name, admin_username, admin_password })
+    });
+    msg.innerHTML = `<div class="success">School created! School ID: <b>${result.school_id}</b> — give this along with the username and password you chose to the school's admin so they can log in.</div>`;
+    e.target.reset();
+    loadSchools();
+  } catch (err) {
+    msg.innerHTML = `<div class="error">${err.message}</div>`;
+  }
+});
+</script>
+</body>
+</html>

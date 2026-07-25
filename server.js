@@ -503,6 +503,37 @@ app.get('/api/school', requireRole('admin'), wrap(async (req, res) => {
   res.json(rows[0]);
 }));
 
+app.post('/api/timetable', requireRole('admin'), wrap(async (req, res) => {
+  const { class_id, day_of_week, period_number, subject_id, teacher_id } = req.body;
+  await pool.query(
+    'DELETE FROM timetable_entries WHERE school_id=$1 AND class_id=$2 AND day_of_week=$3 AND period_number=$4',
+    [req.user.school_id, class_id, day_of_week, period_number]
+  );
+  await pool.query(
+    `INSERT INTO timetable_entries (school_id, class_id, day_of_week, period_number, subject_id, teacher_id)
+     VALUES ($1,$2,$3,$4,$5,$6)`,
+    [req.user.school_id, class_id, day_of_week, period_number, subject_id, teacher_id]
+  );
+  res.json({ ok: true });
+}));
+
+app.get('/api/timetable/:classId', requireRole('admin', 'teacher'), wrap(async (req, res) => {
+  const { rows } = await pool.query(`
+    SELECT te.*, s.name as subject_name, t.full_name as teacher_name
+    FROM timetable_entries te
+    LEFT JOIN subjects s ON s.id = te.subject_id
+    LEFT JOIN teachers t ON t.id = te.teacher_id
+    WHERE te.school_id=$1 AND te.class_id=$2
+  `, [req.user.school_id, req.params.classId]);
+  res.json(rows);
+}));
+
+app.delete('/api/timetable/:id', requireRole('admin'), wrap(async (req, res) => {
+  await pool.query('DELETE FROM timetable_entries WHERE id=$1 AND school_id=$2', [req.params.id, req.user.school_id]);
+  res.json({ ok: true });
+}));
+
+
 // ---------- School profile ----------
 app.patch('/api/school/name', requireRole('admin'), wrap(async (req, res) => {
   await pool.query('UPDATE schools SET name=$1 WHERE id=$2', [req.body.name, req.user.school_id]);
