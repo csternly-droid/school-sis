@@ -58,6 +58,7 @@ app.post('/api/teacher/reset-password', requireRole('teacher'), wrap(async (req,
   await pool.query('UPDATE teachers SET password_hash=$1, must_reset_password=FALSE WHERE id=$2', [hash, req.user.id]);
   res.json({ ok: true });
 }));
+
 // ---------- SUPER ADMIN: schools ----------
 app.post('/api/schools', requireRole('superadmin'), wrap(async (req, res) => {
   const { name, admin_username, admin_password } = req.body;
@@ -87,14 +88,6 @@ app.get('/api/classes', requireRole('admin', 'teacher'), wrap(async (req, res) =
   const { rows } = await pool.query('SELECT * FROM classes WHERE school_id=$1 ORDER BY grade, stream_name', [req.user.school_id]);
   res.json(rows);
 }));
-app.patch('/api/classes/:id', requireRole('admin'), wrap(async (req, res) => {
-  const { grade, stream_name } = req.body;
-  await pool.query(
-    'UPDATE classes SET grade=$1, stream_name=$2 WHERE id=$3 AND school_id=$4',
-    [grade, stream_name, req.params.id, req.user.school_id]
-  );
-  res.json({ ok: true });
-}));
 
 // ---------- ADMIN: learners ----------
 app.post('/api/learners', requireRole('admin'), wrap(async (req, res) => {
@@ -117,16 +110,6 @@ app.get('/api/classes/:classId/list', requireRole('admin', 'teacher'), wrap(asyn
 
 app.delete('/api/learners/:id', requireRole('admin'), wrap(async (req, res) => {
   await pool.query('DELETE FROM learners WHERE id=$1 AND school_id=$2', [req.params.id, req.user.school_id]);
-  res.json({ ok: true });
-}));
-
-app.patch('/api/learners/:id', requireRole('admin'), wrap(async (req, res) => {
-  const { name, sex, upi_number, admission_number, assessment_number } = req.body;
-  await pool.query(
-    `UPDATE learners SET name=$1, sex=$2, upi_number=$3, admission_number=$4, assessment_number=$5
-     WHERE id=$6 AND school_id=$7`,
-    [name, sex, upi_number, admission_number, assessment_number, req.params.id, req.user.school_id]
-  );
   res.json({ ok: true });
 }));
 
@@ -153,14 +136,6 @@ app.delete('/api/subjects/:id', requireRole('admin'), wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
-app.patch('/api/subjects/:id', requireRole('admin'), wrap(async (req, res) => {
-  const { grade, name } = req.body;
-  await pool.query(
-    'UPDATE subjects SET grade=$1, name=$2 WHERE id=$3 AND school_id=$4',
-    [grade, name, req.params.id, req.user.school_id]
-  );
-  res.json({ ok: true });
-}));
 // ---------- ADMIN: teachers ----------
 app.post('/api/teachers', requireRole('admin'), wrap(async (req, res) => {
   const { serial_number, full_name } = req.body;
@@ -197,6 +172,7 @@ app.post('/api/teacher-assignments', requireRole('admin'), wrap(async (req, res)
   );
   res.json({ ok: true });
 }));
+
 app.get('/api/teacher-assignments', requireRole('admin'), wrap(async (req, res) => {
   const { rows } = await pool.query(`
     SELECT ta.*, t.full_name as teacher_name, s.name as subject_name, c.stream_name, c.grade
@@ -213,7 +189,6 @@ app.delete('/api/teacher-assignments/:id', requireRole('admin'), wrap(async (req
   await pool.query('DELETE FROM teacher_assignments WHERE id=$1 AND school_id=$2', [req.params.id, req.user.school_id]);
   res.json({ ok: true });
 }));
-
 
 app.get('/api/teacher-assignments/mine', requireRole('teacher'), wrap(async (req, res) => {
   const { rows } = await pool.query(`
@@ -288,6 +263,7 @@ app.put('/api/marks/admin-override', requireRole('admin'), wrap(async (req, res)
   `, [req.user.school_id, exam_session_id, learner_id, subject_id, score]);
   res.json({ ok: true });
 }));
+
 // ---------- MARK SHEET ----------
 app.get('/api/marksheet/:classId/:examSessionId', requireRole('admin', 'teacher'), wrap(async (req, res) => {
   const { classId, examSessionId } = req.params;
@@ -331,6 +307,11 @@ app.get('/api/grading-bands', requireRole('admin', 'teacher'), wrap(async (req, 
   res.json(rows);
 }));
 
+app.delete('/api/grading-bands/:id', requireRole('admin'), wrap(async (req, res) => {
+  await pool.query('DELETE FROM grading_bands WHERE id=$1 AND school_id=$2', [req.params.id, req.user.school_id]);
+  res.json({ ok: true });
+}));
+
 async function scoreToBand(schoolId, score) {
   const { rows } = await pool.query('SELECT * FROM grading_bands WHERE school_id=$1', [schoolId]);
   return rows.find(b => score >= b.min_score && score <= b.max_score) || null;
@@ -371,6 +352,96 @@ app.get('/api/analysis/:examSessionId/grade/:grade', requireRole('admin'), wrap(
   subjectRanking.sort((a, b) => b.mean - a.mean);
 
   res.json({ learnerRanking, subjectRanking });
+}));
+
+app.get('/api/analysis/class/:classId/:examSessionId', requireRole('admin'), wrap(async (req, res) => {
+  const { classId, examSessionId } = req.params;
+
+  const clsRes = await pool.query('SELECT * FROM classes WHERE id=$1 AND school_id=$2', [classId, req.user.school_id]);
+  const cls = clsRes.rows[0];
+  if (!cls) return res.status(404).json({ error: 'Class not found' });
+
+  const subjectsRes = await pool.query('SELECT * FROM subjects WHERE school_id=$1 AND grade=$2 ORDER BY name', [req.user.school_id, cls.grade]);
+  const subjects = subjectsRes.rows;
+
+  const learnersRes = await pool.query('SELECT * FROM learners WHERE school_id=$1 AND class_id=$2 ORDER BY name', [req.user.school_id, classId]);
+  const learners = learnersRes.rows;
+
+  const marksRes = await pool.query(
+    'SELECT * FROM marks WHERE exam_session_id=$1 AND learner_id IN (SELECT id FROM learners WHERE class_id=$2)',
+    [examSessionId, classId]
+  );
+  const marks = marksRes.rows;
+
+  const marksByLearner = {};
+  marks.forEach(m => {
+    marksByLearner[m.learner_id] = marksByLearner[m.learner_id] || {};
+    marksByLearner[m.learner_id][m.subject_id] = Number(m.score);
+  });
+
+  const learnerRanking = learners.map(l => {
+    const subjectScores = subjects.map(s => ({
+      subject: s.name,
+      score: marksByLearner[l.id] && marksByLearner[l.id][s.id] !== undefined ? marksByLearner[l.id][s.id] : null
+    }));
+    const recorded = subjectScores.filter(s => s.score !== null).map(s => s.score);
+    const mean = recorded.length ? recorded.reduce((a, b) => a + b, 0) / recorded.length : 0;
+    return { learner: l, mean, subjects: subjectScores };
+  }).sort((a, b) => b.mean - a.mean)
+    .map((r, i) => ({ position: i + 1, ...r }));
+
+  const subjectRanking = subjects.map(s => {
+    const scores = learners
+      .map(l => (marksByLearner[l.id] ? marksByLearner[l.id][s.id] : undefined))
+      .filter(v => v !== undefined);
+    const mean = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+    return { subject: s.name, mean, entries: scores.length };
+  }).sort((a, b) => b.mean - a.mean);
+
+  const prevRes = await pool.query(
+    'SELECT * FROM exam_sessions WHERE school_id=$1 AND id < $2 ORDER BY id DESC LIMIT 1',
+    [req.user.school_id, examSessionId]
+  );
+  const prevExam = prevRes.rows[0] || null;
+
+  let mostImproved = [];
+  let classTrend = null;
+
+  if (prevExam) {
+    const prevMarksRes = await pool.query(
+      'SELECT * FROM marks WHERE exam_session_id=$1 AND learner_id IN (SELECT id FROM learners WHERE class_id=$2)',
+      [prevExam.id, classId]
+    );
+    const prevMarksByLearner = {};
+    prevMarksRes.rows.forEach(m => {
+      prevMarksByLearner[m.learner_id] = prevMarksByLearner[m.learner_id] || [];
+      prevMarksByLearner[m.learner_id].push(Number(m.score));
+    });
+
+    mostImproved = learners.map(l => {
+      const currentScores = marksByLearner[l.id] ? Object.values(marksByLearner[l.id]) : [];
+      const currentMean = currentScores.length ? currentScores.reduce((a, b) => a + b, 0) / currentScores.length : null;
+      const prevScoresArr = prevMarksByLearner[l.id] || [];
+      const prevMean = prevScoresArr.length ? prevScoresArr.reduce((a, b) => a + b, 0) / prevScoresArr.length : null;
+      if (currentMean === null || prevMean === null) return null;
+      return { learner: l, previousMean: prevMean, currentMean, improvement: currentMean - prevMean };
+    }).filter(x => x !== null)
+      .sort((a, b) => b.improvement - a.improvement);
+
+    const currentAll = marks.map(m => Number(m.score));
+    const currentClassMean = currentAll.length ? currentAll.reduce((a, b) => a + b, 0) / currentAll.length : 0;
+    const prevAll = prevMarksRes.rows.map(m => Number(m.score));
+    const prevClassMean = prevAll.length ? prevAll.reduce((a, b) => a + b, 0) / prevAll.length : 0;
+
+    classTrend = {
+      previousExamName: prevExam.name,
+      previousMean: prevClassMean,
+      currentMean: currentClassMean,
+      change: currentClassMean - prevClassMean
+    };
+  }
+
+  res.json({ class: cls, learnerRanking, subjectRanking, mostImproved, classTrend });
 }));
 
 // ---------- INDIVIDUAL REPORT ----------
@@ -437,6 +508,8 @@ app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 module.exports = app;
 
+// Only start a local server when run directly (e.g. `node server.js`).
+// On Vercel, api/index.js imports `app` instead and Vercel handles the listening.
 if (require.main === module) {
   const PORT = process.env.PORT || 4000;
   app.listen(PORT, () => console.log(`SIS backend running on http://localhost:${PORT}`));

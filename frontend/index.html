@@ -57,6 +57,9 @@
       <button data-tab="teachers">Teachers</button>
       <button data-tab="assignments">Assignments</button>
       <button data-tab="exams">Exams</button>
+      <button data-tab="grading">Grading</button>
+      <button data-tab="marksheet">Mark Sheet</button>
+      <button data-tab="analysis">Analysis</button>
     </nav>
 
     <!-- CLASSES TAB -->
@@ -163,6 +166,68 @@
         <tbody></tbody>
       </table>
     </div>
+
+    <!-- GRADING TAB -->
+    <div id="tab-grading" class="tab hidden">
+      <h2>Grading System</h2>
+      <p>Set the score ranges for each grade letter, e.g. 80-100 = A. This applies to individual learner reports.</p>
+      <form id="gradingForm" class="row">
+        <input type="number" id="gradeMin" placeholder="Min score" required>
+        <input type="number" id="gradeMax" placeholder="Max score" required>
+        <input type="text" id="gradeLetter" placeholder="Letter (e.g. A)" required>
+        <input type="number" id="gradePoints" placeholder="Points (e.g. 12)" step="0.1" required>
+        <button type="submit">Add</button>
+      </form>
+      <div id="gradingMsg"></div>
+      <table id="gradingTable">
+        <thead><tr><th>Range</th><th>Letter</th><th>Points</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- MARK SHEET TAB -->
+    <div id="tab-marksheet" class="tab hidden">
+      <h2>Mark Sheet</h2>
+      <p>Click any score to correct it yourself (works even after the exam session is closed).</p>
+      <div class="row">
+        <select id="marksheetClassSelect"></select>
+        <select id="marksheetExamSelect"></select>
+        <button onclick="loadMarksheet()">Load Mark Sheet</button>
+      </div>
+      <div id="marksheetMsg"></div>
+      <div id="marksheetContainer" style="overflow-x:auto;"></div>
+    </div>
+
+    <!-- ANALYSIS TAB -->
+    <div id="tab-analysis" class="tab hidden">
+      <h2>Results Analysis</h2>
+      <div class="row">
+        <select id="analysisExamSelect"></select>
+        <select id="analysisGradeSelect">
+          <option value="1">Grade 1</option>
+          <option value="2">Grade 2</option>
+          <option value="3">Grade 3</option>
+          <option value="4">Grade 4</option>
+          <option value="5">Grade 5</option>
+          <option value="6">Grade 6</option>
+          <option value="7">Grade 7</option>
+          <option value="8">Grade 8</option>
+          <option value="9">Grade 9</option>
+        </select>
+        <button onclick="loadAnalysis()">Run Analysis</button>
+      </div>
+      <div id="analysisMsg"></div>
+      <h3>Learner Ranking (best to worst)</h3>
+      <table id="learnerRankTable">
+        <thead><tr><th>Position</th><th>Name</th><th>Average Score</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <h3>Subject Ranking (best to worst, by mean)</h3>
+      <table id="subjectRankTable">
+        <thead><tr><th>Subject</th><th>Average Score</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
@@ -215,6 +280,7 @@ function showDashboard() {
   loadTeachers();
   loadAssignments();
   loadExams();
+  loadGradingBands();
 }
 
 // If already logged in from before, skip straight to dashboard
@@ -247,6 +313,7 @@ async function loadClasses() {
     });
     if (classes.length) loadLearners(select.value);
     populateAssignmentSelects();
+    populateMarksheetSelects();
   } catch (err) {
     document.getElementById('classMsg').innerHTML = `<div class="error">${err.message}</div>`;
   }
@@ -527,6 +594,8 @@ async function loadExams() {
       tbody.innerHTML += `<tr><td>${ex.name}</td><td>${ex.is_open ? 'OPEN (teachers can enter marks)' : 'Closed'}</td>
         <td><button onclick="toggleExam(${ex.id}, ${!ex.is_open})">${ex.is_open ? 'Close' : 'Open'}</button></td></tr>`;
     });
+    populateMarksheetSelects();
+    populateAnalysisSelect();
   } catch (err) {
     document.getElementById('examMsg').innerHTML = `<div class="error">${err.message}</div>`;
   }
@@ -552,6 +621,123 @@ async function toggleExam(id, newOpen) {
     loadExams();
   } catch (err) {
     alert(err.message);
+  }
+}
+
+// ====== GRADING BANDS ======
+async function loadGradingBands() {
+  try {
+    const bands = await api('/api/grading-bands');
+    const tbody = document.querySelector('#gradingTable tbody');
+    tbody.innerHTML = '';
+    bands.forEach(b => {
+      tbody.innerHTML += `<tr><td>${b.min_score} - ${b.max_score}</td><td>${b.grade_letter}</td><td>${b.points}</td>
+        <td><button class="danger" onclick="deleteGradingBand(${b.id})">Delete</button></td></tr>`;
+    });
+  } catch (err) {
+    document.getElementById('gradingMsg').innerHTML = `<div class="error">${err.message}</div>`;
+  }
+}
+
+document.getElementById('gradingForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const min_score = Number(document.getElementById('gradeMin').value);
+  const max_score = Number(document.getElementById('gradeMax').value);
+  const grade_letter = document.getElementById('gradeLetter').value;
+  const points = Number(document.getElementById('gradePoints').value);
+  const msg = document.getElementById('gradingMsg');
+  try {
+    await api('/api/grading-bands', { method: 'POST', body: JSON.stringify({ min_score, max_score, grade_letter, points }) });
+    msg.innerHTML = '<div class="success">Grade band added.</div>';
+    e.target.reset();
+    loadGradingBands();
+  } catch (err) {
+    msg.innerHTML = `<div class="error">${err.message}</div>`;
+  }
+});
+
+async function deleteGradingBand(id) {
+  if (!confirm('Remove this grade band?')) return;
+  try {
+    await api(`/api/grading-bands/${id}`, { method: 'DELETE' });
+    loadGradingBands();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+// ====== MARK SHEET ======
+function populateMarksheetSelects() {
+  const classSelect = document.getElementById('marksheetClassSelect');
+  const examSelect = document.getElementById('marksheetExamSelect');
+  if (!classSelect || !examSelect) return;
+  classSelect.innerHTML = currentClasses.map(c => `<option value="${c.id}">${c.stream_name} (Grade ${c.grade})</option>`).join('');
+  examSelect.innerHTML = currentExams.map(ex => `<option value="${ex.id}">${ex.name}</option>`).join('');
+}
+
+async function loadMarksheet() {
+  const classId = document.getElementById('marksheetClassSelect').value;
+  const examId = document.getElementById('marksheetExamSelect').value;
+  const container = document.getElementById('marksheetContainer');
+  const msg = document.getElementById('marksheetMsg');
+  if (!classId || !examId) { msg.innerHTML = '<div class="error">Add a class and exam session first.</div>'; return; }
+  try {
+    const data = await api(`/api/marksheet/${classId}/${examId}`);
+    let html = '<table><thead><tr><th>Name</th><th>Admission #</th>';
+    data.subjects.forEach(s => { html += `<th>${s.name}</th>`; });
+    html += '</tr></thead><tbody>';
+    data.rows.forEach(row => {
+      html += `<tr><td>${row.learner.name}</td><td>${row.learner.admission_number}</td>`;
+      data.subjects.forEach((s, i) => {
+        const score = row.scores[i];
+        html += `<td style="cursor:pointer;text-decoration:underline;" onclick="editMark(${row.learner.id}, ${s.id}, ${examId}, ${score === null ? "'null'" : score})">${score === null ? '-' : score}</td>`;
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    container.innerHTML = html;
+    msg.innerHTML = '';
+  } catch (err) {
+    msg.innerHTML = `<div class="error">${err.message}</div>`;
+  }
+}
+
+function editMark(learnerId, subjectId, examId, currentScore) {
+  const newScore = prompt('Enter score:', currentScore === 'null' ? '' : currentScore);
+  if (newScore === null || newScore === '') return;
+  api('/api/marks/admin-override', {
+    method: 'PUT',
+    body: JSON.stringify({ exam_session_id: Number(examId), learner_id: learnerId, subject_id: subjectId, score: Number(newScore) })
+  }).then(loadMarksheet).catch(err => alert(err.message));
+}
+
+// ====== RESULTS ANALYSIS ======
+function populateAnalysisSelect() {
+  const examSelect = document.getElementById('analysisExamSelect');
+  if (!examSelect) return;
+  examSelect.innerHTML = currentExams.map(ex => `<option value="${ex.id}">${ex.name}</option>`).join('');
+}
+
+async function loadAnalysis() {
+  const examId = document.getElementById('analysisExamSelect').value;
+  const grade = document.getElementById('analysisGradeSelect').value;
+  const msg = document.getElementById('analysisMsg');
+  if (!examId) { msg.innerHTML = '<div class="error">Create an exam session first.</div>'; return; }
+  try {
+    const data = await api(`/api/analysis/${examId}/grade/${grade}`);
+    const learnerBody = document.querySelector('#learnerRankTable tbody');
+    learnerBody.innerHTML = '';
+    data.learnerRanking.forEach(r => {
+      learnerBody.innerHTML += `<tr><td>${r.position}</td><td>${r.learner.name}</td><td>${r.mean.toFixed(1)}</td></tr>`;
+    });
+    const subjectBody = document.querySelector('#subjectRankTable tbody');
+    subjectBody.innerHTML = '';
+    data.subjectRanking.forEach(s => {
+      subjectBody.innerHTML += `<tr><td>${s.subject}</td><td>${s.mean.toFixed(1)}</td></tr>`;
+    });
+    msg.innerHTML = '';
+  } catch (err) {
+    msg.innerHTML = `<div class="error">${err.message}</div>`;
   }
 }
 </script>
