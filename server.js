@@ -573,6 +573,169 @@ app.delete('/api/timetable/:id', requireRole('admin'), wrap(async (req, res) => 
   await pool.query('DELETE FROM timetable_entries WHERE id=$1 AND school_id=$2', [req.params.id, req.user.school_id]);
   res.json({ ok: true });
 }));
+app.get('/api/school-settings', requireRole('admin'), wrap(async (req, res) => {
+  const { rows } = await pool.query('SELECT * FROM school_settings WHERE school_id=$1', [req.user.school_id]);
+  if (!rows[0]) {
+    return res.json({
+      school_id: req.user.school_id,
+      day_start_time: '08:00',
+      lessons_per_day: 8,
+      break1_after_period: 2,
+      break1_duration: 15,
+      break2_after_period: 5,
+      break2_duration: 15,
+      lunch_after_period_primary: 4,
+      lunch_after_period_junior: 5,
+      lunch_duration: 40
+    });
+  }
+  res.json(rows[0]);
+}));
+
+app.post('/api/school-settings', requireRole('admin'), wrap(async (req, res) => {
+  const {
+    day_start_time, lessons_per_day,
+    break1_after_period, break1_duration,
+    break2_after_period, break2_duration,
+    lunch_after_period_primary, lunch_after_period_junior, lunch_duration
+  } = req.body;
+  await pool.query(`
+    INSERT INTO school_settings (school_id, day_start_time, lessons_per_day, break1_after_period, break1_duration,
+      break2_after_period, break2_duration, lunch_after_period_primary, lunch_after_period_junior, lunch_duration)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+    ON CONFLICT (school_id) DO UPDATE SET
+      day_start_time=EXCLUDED.day_start_time, lessons_per_day=EXCLUDED.lessons_per_day,
+      break1_after_period=EXCLUDED.break1_after_period, break1_duration=EXCLUDED.break1_duration,
+      break2_after_period=EXCLUDED.break2_after_period, break2_duration=EXCLUDED.break2_duration,
+      lunch_after_period_primary=EXCLUDED.lunch_after_period_primary,
+      lunch_after_period_junior=EXCLUDED.lunch_after_period_junior,
+      lunch_duration=EXCLUDED.lunch_duration
+  `, [req.user.school_id, day_start_time, lessons_per_day, break1_after_period, break1_duration,
+      break2_after_period, break2_duration, lunch_after_period_primary, lunch_after_period_junior, lunch_duration]);
+  res.json({ ok: true });
+}));
+
+app.post('/api/subject-lessons', requireRole('admin'), wrap(async (req, res) => {
+  const { grade, subject_id, lessons_per_week } = req.body;
+  await pool.query(`
+    INSERT INTO subject_lessons_per_week (school_id, grade, subject_id, lessons_per_week)
+    VALUES ($1,$2,$3,$4)
+    ON CONFLICT (school_id, grade, subject_id) DO UPDATE SET lessons_per_week=EXCLUDED.lessons_per_week
+  `, [req.user.school_id, grade, subject_id, lessons_per_week]);
+  res.json({ ok: true });
+}));
+
+app.get('/api/subject-lessons', requireRole('admin'), wrap(async (req, res) => {
+  const { grade } = req.query;
+  const { rows } = grade
+    ? await pool.query('SELECT * FROM subject_lessons_per_week WHERE school_id=$1 AND grade=$2', [req.user.school_id, grade])
+    : await pool.query('SELECT * FROM subject_lessons_per_week WHERE school_id=$1', [req.user.school_id]);
+  res.json(rows);
+}));
+
+app.post('/api/timetable/generate', requireRole('admin'), wrap(async (req, res) => {
+  const schoolId = req.user.school_id;
+
+  const settingsRes = await pool.query('SELECT * FROM school_settings WHERE school_id=$1', [schoolId]);
+  const settings = settingsRes.rows[0] || { lessons_per_day: 8 };
+  const lessonsPerDay = settings.lessons_per_day || 8;
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+
+  const classesRes = await pool.query('SELECT * FROM classes WHERE school_id=$1', [schoolId]);
+  const classes = classesRes.rows;
+
+  const assignRes = await pool.query('SELECT * FROM teacher_assignments WHERE school_id=$1', [schoolId]);
+  const assignments = assignRes.rows;
+
+  const lpwRes = await pool.query('SELECT * FROM subject_lessons_per_week WHERE school_id=$1', [schoolId]);
+  const lpwMap = {};
+  lpwRes.rows.forEach(r => { lpwMap[`${r.grade}-${r.subject_id}`] = r.lessons_per_week; });
+
+  const requirements = [];
+  for (const a of assignments) {
+    const cls = classes.find(c => c.id === a.class_id);
+    if (!cls) continue;
+    const count = lpwMap[`${cls.grade}-${a.subject_id}`];
+    if (!count) continue;
+    requirements.push({ class_id: a.class_id, subject_id: a.subject_id, teacher_id: a.teacher_id, count });
+  }
+
+  requirements.sort((x, y) => y.count - x.count);
+
+  function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  const classBusy = {};
+  const teacherBusy = {};
+  const classDaySubject = {};
+  const placements = [];
+  const unplaced = [];
+
+  for (const requirement of requirements) {
+    let placedCount = 0;
+    for (let pass = 0; pass < 2 && placedCount < requirement.count; pass++) {
+      const shuffledDays = shuffle(days);
+      for (const day of shuffledDays) {
+        if (placedCount >= requirement.count) break;
+        const daySubjectKey = `${requirement.class_id}-${day}-${requirement.subject_id}`;
+        if (pass === 0 && classDaySubject[daySubjectKey]) continue;
+        const shuffledPeriods = shuffle(Array.from({ length: lessonsPerDay }, (_, i) => i + 1));
+        for (const period of shuffledPeriods) {
+          if (placedCount >= requirement.count) break;
+          const classKey = `${requirement.class_id}-${day}-${period}`;
+          const teacherKey = `${requirement.teacher_id}-${day}-${period}`;
+          if (classBusy[classKey] || teacherBusy[teacherKey]) continue;
+          classBusy[classKey] = true;
+          teacherBusy[teacherKey] = true;
+          classDaySubject[daySubjectKey] = (classDaySubject[daySubjectKey] || 0) + 1;
+          placements.push({
+            class_id: requirement.class_id, subject_id: requirement.subject_id,
+            teacher_id: requirement.teacher_id, day_of_week: day, period_number: period
+          });
+          placedCount++;
+        }
+      }
+    }
+    if (placedCount < requirement.count) {
+      unplaced.push({
+        class_id: requirement.class_id, subject_id: requirement.subject_id,
+        teacher_id: requirement.teacher_id, missing: requirement.count - placedCount
+      });
+    }
+  }
+
+  await pool.query('DELETE FROM timetable_entries WHERE school_id=$1', [schoolId]);
+  for (const p of placements) {
+    await pool.query(
+      `INSERT INTO timetable_entries (school_id, class_id, day_of_week, period_number, subject_id, teacher_id)
+       VALUES ($1,$2,$3,$4,$5,$6)`,
+      [schoolId, p.class_id, p.day_of_week, p.period_number, p.subject_id, p.teacher_id]
+    );
+  }
+
+  res.json({
+    placed: placements.length,
+    total_requested: requirements.reduce((a, r) => a + r.count, 0),
+    unplaced
+  });
+}));
+
+app.get('/api/timetable/teacher/:teacherId', requireRole('admin', 'teacher'), wrap(async (req, res) => {
+  const { rows } = await pool.query(`
+    SELECT te.*, s.name as subject_name, c.stream_name, c.grade
+    FROM timetable_entries te
+    LEFT JOIN subjects s ON s.id = te.subject_id
+    JOIN classes c ON c.id = te.class_id
+    WHERE te.school_id=$1 AND te.teacher_id=$2
+  `, [req.user.school_id, req.params.teacherId]);
+  res.json(rows);
+}));
 
 app.patch('/api/school/name', requireRole('admin'), wrap(async (req, res) => {
   await pool.query('UPDATE schools SET name=$1 WHERE id=$2', [req.body.name, req.user.school_id]);
