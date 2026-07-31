@@ -56,6 +56,10 @@
 
 <!-- ===== DASHBOARD (hidden until logged in) ===== -->
 <div id="dashboard" class="container hidden">
+  <div class="card" style="display:flex; justify-content:space-between; align-items:center;">
+    <h1 style="margin:0; font-size:20px; color:#1e3a5f;">School Admin</h1>
+    <button style="background:#ff6b6b;" onclick="logout()">Log Out</button>
+  </div>
   <div class="card">
     <nav id="mainNav">
       <button data-tab="classes" class="active">Classes</button>
@@ -68,6 +72,7 @@
       <button data-tab="marksheet">Mark Sheet</button>
       <button data-tab="analysis">Analysis</button>
       <button data-tab="report">Report</button>
+      <button data-tab="timetable">Timetable</button>
     </nav>
 
     <!-- CLASSES TAB -->
@@ -195,8 +200,7 @@
 
     <!-- MARK SHEET TAB -->
     <div id="tab-marksheet" class="tab hidden">
-
-    <h2 id="marksheetSchoolHeader" style="text-align:center;"></h2>
+      <h2 id="marksheetSchoolHeader" style="text-align:center;"></h2>
       <h2>Mark Sheet</h2>
       <p>Click any score to correct it yourself (works even after the exam session is closed).</p>
       <div class="row">
@@ -210,7 +214,7 @@
 
     <!-- ANALYSIS TAB -->
     <div id="tab-analysis" class="tab hidden">
-    <h2 id="analysisSchoolHeader" style="text-align:center;"></h2>
+      <h2 id="analysisSchoolHeader" style="text-align:center;"></h2>
       <h2>Results Analysis</h2>
       <div class="row">
         <select id="analysisClassSelect"></select>
@@ -266,6 +270,15 @@
         </div>
       </div>
     </div>
+
+    <!-- TIMETABLE TAB -->
+    <div id="tab-timetable" class="tab hidden">
+      <h2>Timetable</h2>
+      <p>Choose a class, then click any cell to assign a subject and teacher for that period.</p>
+      <select id="timetableClassSelect"></select>
+      <div id="timetableMsg"></div>
+      <div id="timetableContainer" style="overflow-x:auto;"></div>
+    </div>
   </div>
 </div>
 
@@ -309,6 +322,12 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     errorBox.textContent = err.message;
   }
 });
+
+function logout() {
+  clearToken();
+  document.getElementById('dashboard').classList.add('hidden');
+  document.getElementById('loginScreen').classList.remove('hidden');
+}
 
 function showDashboard() {
   document.getElementById('loginScreen').classList.add('hidden');
@@ -354,6 +373,7 @@ async function loadClasses() {
     populateAssignmentSelects();
     populateMarksheetSelects();
     populateReportClassSelect();
+    populateTimetableClassSelect();
   } catch (err) {
     document.getElementById('classMsg').innerHTML = `<div class="error">${err.message}</div>`;
   }
@@ -929,6 +949,74 @@ async function saveRemarks() {
   } catch (err) {
     document.getElementById('reportMsg').innerHTML = `<div class="error">${err.message}</div>`;
   }
+}
+
+// ====== TIMETABLE ======
+const TIMETABLE_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+const TIMETABLE_PERIODS = [1, 2, 3, 4, 5, 6, 7, 8];
+let currentTimetableSubjects = [];
+
+function populateTimetableClassSelect() {
+  const select = document.getElementById('timetableClassSelect');
+  if (!select) return;
+  select.innerHTML = currentClasses.map(c => `<option value="${c.id}" data-grade="${c.grade}">${c.stream_name} (Grade ${c.grade})</option>`).join('');
+  loadTimetable();
+}
+
+document.getElementById('timetableClassSelect') && document.getElementById('timetableClassSelect').addEventListener('change', loadTimetable);
+
+async function loadTimetable() {
+  const select = document.getElementById('timetableClassSelect');
+  const classId = select.value;
+  const msg = document.getElementById('timetableMsg');
+  const container = document.getElementById('timetableContainer');
+  if (!classId) { container.innerHTML = ''; return; }
+  const selectedOption = select.options[select.selectedIndex];
+  const grade = selectedOption ? selectedOption.dataset.grade : null;
+  currentTimetableSubjects = currentSubjects.filter(s => String(s.grade) === String(grade));
+  try {
+    const entries = await api(`/api/timetable/${classId}`);
+    const entryMap = {};
+    entries.forEach(e => { entryMap[`${e.day_of_week}-${e.period_number}`] = e; });
+    let html = '<table><thead><tr><th>Period</th>';
+    TIMETABLE_DAYS.forEach(d => { html += `<th>${d}</th>`; });
+    html += '</tr></thead><tbody>';
+    TIMETABLE_PERIODS.forEach(p => {
+      html += `<tr><td>${p}</td>`;
+      TIMETABLE_DAYS.forEach(d => {
+        const e = entryMap[`${d}-${p}`];
+        const label = e ? `${e.subject_name || '?'}<br><small>${e.teacher_name || ''}</small>` : '-';
+        html += `<td style="cursor:pointer;text-align:center;" onclick="editTimetableCell(${classId}, '${d}', ${p})">${label}</td>`;
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    container.innerHTML = html;
+    msg.innerHTML = '';
+  } catch (err) {
+    msg.innerHTML = `<div class="error">${err.message}</div>`;
+  }
+}
+
+function editTimetableCell(classId, day, period) {
+  if (!currentTimetableSubjects.length) { alert('Add subjects for this grade first, under the Subjects tab.'); return; }
+  const subjectList = currentTimetableSubjects.map((s, i) => `${i + 1}. ${s.name}`).join('\n');
+  const subjIdx = prompt(`Choose subject number for ${day} period ${period}:\n${subjectList}`);
+  if (subjIdx === null) return;
+  const subject = currentTimetableSubjects[Number(subjIdx) - 1];
+  if (!subject) { alert('Invalid subject number.'); return; }
+
+  if (!currentTeachers.length) { alert('Add teachers first, under the Teachers tab.'); return; }
+  const teacherList = currentTeachers.map((t, i) => `${i + 1}. ${t.full_name} (${t.serial_number})`).join('\n');
+  const teachIdx = prompt(`Choose teacher number:\n${teacherList}`);
+  if (teachIdx === null) return;
+  const teacher = currentTeachers[Number(teachIdx) - 1];
+  if (!teacher) { alert('Invalid teacher number.'); return; }
+
+  api('/api/timetable', {
+    method: 'POST',
+    body: JSON.stringify({ class_id: classId, day_of_week: day, period_number: period, subject_id: subject.id, teacher_id: teacher.id })
+  }).then(loadTimetable).catch(err => alert(err.message));
 }
 
 // ====== SCHOOL NAME HEADER ======

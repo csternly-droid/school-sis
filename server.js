@@ -26,6 +26,10 @@ app.post('/api/login/superadmin', wrap(async (req, res) => {
 
 app.post('/api/login/admin', wrap(async (req, res) => {
   const { school_id, username, password } = req.body;
+  const schoolRes = await pool.query('SELECT * FROM schools WHERE id=$1', [school_id]);
+  if (!schoolRes.rows[0] || schoolRes.rows[0].active === false) {
+    return res.status(403).json({ error: 'This school is not active. Contact the system administrator.' });
+  }
   const { rows } = await pool.query('SELECT * FROM admins WHERE school_id=$1 AND username=$2', [school_id, username]);
   const row = rows[0];
   if (!row || !bcrypt.compareSync(password, row.password_hash)) {
@@ -36,6 +40,10 @@ app.post('/api/login/admin', wrap(async (req, res) => {
 
 app.post('/api/login/teacher', wrap(async (req, res) => {
   const { school_id, serial_number, password } = req.body;
+  const schoolRes = await pool.query('SELECT * FROM schools WHERE id=$1', [school_id]);
+  if (!schoolRes.rows[0] || schoolRes.rows[0].active === false) {
+    return res.status(403).json({ error: 'This school is not active. Contact the system administrator.' });
+  }
   const { rows } = await pool.query(
     'SELECT * FROM teachers WHERE school_id=$1 AND serial_number=$2 AND active=TRUE',
     [school_id, serial_number]
@@ -69,6 +77,24 @@ app.post('/api/schools', requireRole('superadmin'), wrap(async (req, res) => {
 app.get('/api/schools', requireRole('superadmin'), wrap(async (req, res) => {
   const { rows } = await pool.query('SELECT * FROM schools ORDER BY id');
   res.json(rows);
+}));
+
+app.patch('/api/schools/:id/active', requireRole('superadmin'), wrap(async (req, res) => {
+  const { active } = req.body;
+  await pool.query('UPDATE schools SET active=$1 WHERE id=$2', [!!active, req.params.id]);
+  res.json({ ok: true });
+}));
+
+app.delete('/api/schools/:id', requireRole('superadmin'), wrap(async (req, res) => {
+  try {
+    await pool.query('DELETE FROM schools WHERE id=$1', [req.params.id]);
+    res.json({ ok: true });
+  } catch (err) {
+    if (err.code === '23503') {
+      return res.status(400).json({ error: 'Cannot delete: this school already has classes, learners, or other data. Deactivate it instead.' });
+    }
+    throw err;
+  }
 }));
 
 app.post('/api/classes', requireRole('admin'), wrap(async (req, res) => {
