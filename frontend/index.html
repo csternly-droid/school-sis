@@ -855,8 +855,9 @@ async function loadMarksheet() {
 }
 
 function editMark(learnerId, subjectId, examId, currentScore) {
-  const newScore = prompt('Enter score:', currentScore === 'null' ? '' : currentScore);
+  const newScore = prompt('Enter score (01-99):', currentScore === 'null' ? '' : currentScore);
   if (newScore === null || newScore === '') return;
+  if (Number(newScore) < 1 || Number(newScore) > 99) { alert('Score must be between 01 and 99.'); return; }
   api('/api/marks/admin-override', {
     method: 'PUT',
     body: JSON.stringify({ exam_session_id: Number(examId), learner_id: learnerId, subject_id: subjectId, score: Number(newScore) })

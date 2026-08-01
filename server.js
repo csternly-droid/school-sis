@@ -250,9 +250,15 @@ app.get('/api/exam-sessions', requireRole('admin', 'teacher'), wrap(async (req, 
 
 // ---------- TEACHER: enter marks ----------
 app.post('/api/marks', requireRole('teacher'), wrap(async (req, res) => {
+app.post('/api/marks', requireRole('teacher'), wrap(async (req, res) => {
   const { exam_session_id, learner_id, subject_id, score } = req.body;
 
+  if (score === undefined || score === null || Number(score) < 1 || Number(score) > 99) {
+    return res.status(400).json({ error: 'Score must be between 01 and 99.' });
+  }
+
   const sessionRes = await pool.query('SELECT * FROM exam_sessions WHERE id=$1 AND school_id=$2', [exam_session_id, req.user.school_id]);
+
   const session = sessionRes.rows[0];
   if (!session || !session.is_open) {
     return res.status(403).json({ error: 'This exam session is closed. Ask the admin to open it.' });
@@ -281,6 +287,9 @@ app.post('/api/marks', requireRole('teacher'), wrap(async (req, res) => {
 
 app.put('/api/marks/admin-override', requireRole('admin'), wrap(async (req, res) => {
   const { exam_session_id, learner_id, subject_id, score } = req.body;
+  if (score === undefined || score === null || Number(score) < 1 || Number(score) > 99) {
+    return res.status(400).json({ error: 'Score must be between 01 and 99.' });
+  }
   await pool.query(`
     INSERT INTO marks (school_id, exam_session_id, learner_id, subject_id, teacher_id, score)
     VALUES ($1,$2,$3,$4, 0, $5)

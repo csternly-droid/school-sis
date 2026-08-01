@@ -210,7 +210,7 @@ async function loadMarksEntry() {
       tbody.innerHTML += `<tr>
         <td>${row.learner.name}</td>
         <td>${row.learner.admission_number}</td>
-        <td><input type="number" value="${score === null ? '' : score}" min="0" max="100"
+      <input type="number" value="${score === null ? '' : score}" min="1" max="99"
             onchange="submitMark(${row.learner.id}, ${assignment.subject_id}, ${examId}, this.value)"></td>
       </tr>`;
     });
