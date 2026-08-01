@@ -115,6 +115,15 @@ app.get('/api/classes', requireRole('admin', 'teacher'), wrap(async (req, res) =
   res.json(rows);
 }));
 
+app.patch('/api/classes/:id', requireRole('admin'), wrap(async (req, res) => {
+  const { grade, stream_name } = req.body;
+  await pool.query(
+    'UPDATE classes SET grade=$1, stream_name=$2 WHERE id=$3 AND school_id=$4',
+    [grade, stream_name, req.params.id, req.user.school_id]
+  );
+  res.json({ ok: true });
+}));
+
 // ---------- ADMIN: learners ----------
 app.post('/api/learners', requireRole('admin'), wrap(async (req, res) => {
   const { class_id, upi_number, name, sex, admission_number, assessment_number } = req.body;
@@ -139,6 +148,16 @@ app.delete('/api/learners/:id', requireRole('admin'), wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
+app.patch('/api/learners/:id', requireRole('admin'), wrap(async (req, res) => {
+  const { name, sex, upi_number, admission_number, assessment_number } = req.body;
+  await pool.query(
+    `UPDATE learners SET name=$1, sex=$2, upi_number=$3, admission_number=$4, assessment_number=$5
+     WHERE id=$6 AND school_id=$7`,
+    [name, sex, upi_number, admission_number, assessment_number, req.params.id, req.user.school_id]
+  );
+  res.json({ ok: true });
+}));
+
 // ---------- ADMIN: subjects ----------
 app.post('/api/subjects', requireRole('admin'), wrap(async (req, res) => {
   const { grade, name } = req.body;
@@ -159,6 +178,15 @@ app.get('/api/subjects', requireRole('admin', 'teacher'), wrap(async (req, res) 
 
 app.delete('/api/subjects/:id', requireRole('admin'), wrap(async (req, res) => {
   await pool.query('DELETE FROM subjects WHERE id=$1 AND school_id=$2', [req.params.id, req.user.school_id]);
+  res.json({ ok: true });
+}));
+
+app.patch('/api/subjects/:id', requireRole('admin'), wrap(async (req, res) => {
+  const { grade, name } = req.body;
+  await pool.query(
+    'UPDATE subjects SET grade=$1, name=$2 WHERE id=$3 AND school_id=$4',
+    [grade, name, req.params.id, req.user.school_id]
+  );
   res.json({ ok: true });
 }));
 
@@ -250,7 +278,6 @@ app.get('/api/exam-sessions', requireRole('admin', 'teacher'), wrap(async (req, 
 
 // ---------- TEACHER: enter marks ----------
 app.post('/api/marks', requireRole('teacher'), wrap(async (req, res) => {
-app.post('/api/marks', requireRole('teacher'), wrap(async (req, res) => {
   const { exam_session_id, learner_id, subject_id, score } = req.body;
 
   if (score === undefined || score === null || Number(score) < 1 || Number(score) > 99) {
@@ -258,7 +285,6 @@ app.post('/api/marks', requireRole('teacher'), wrap(async (req, res) => {
   }
 
   const sessionRes = await pool.query('SELECT * FROM exam_sessions WHERE id=$1 AND school_id=$2', [exam_session_id, req.user.school_id]);
-
   const session = sessionRes.rows[0];
   if (!session || !session.is_open) {
     return res.status(403).json({ error: 'This exam session is closed. Ask the admin to open it.' });
@@ -751,4 +777,4 @@ module.exports = app;
 if (require.main === module) {
   const PORT = process.env.PORT || 4000;
   app.listen(PORT, () => console.log(`SIS backend running on http://localhost:${PORT}`));
-}
+}ssssss
