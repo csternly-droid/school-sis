@@ -9,11 +9,13 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Small helper so we don't repeat try/catch everywhere
 const wrap = (fn) => (req, res) => fn(req, res).catch((err) => {
   console.error(err);
   res.status(500).json({ error: 'Server error', detail: err.message });
 });
 
+// ---------- LOGIN ----------
 app.post('/api/login/superadmin', wrap(async (req, res) => {
   const { username, password } = req.body;
   const { rows } = await pool.query('SELECT * FROM super_admins WHERE username=$1', [username]);
@@ -65,6 +67,7 @@ app.post('/api/teacher/reset-password', requireRole('teacher'), wrap(async (req,
   res.json({ ok: true });
 }));
 
+// ---------- SUPER ADMIN: schools ----------
 app.post('/api/schools', requireRole('superadmin'), wrap(async (req, res) => {
   const { name, admin_username, admin_password } = req.body;
   const { rows } = await pool.query('INSERT INTO schools (name) VALUES ($1) RETURNING id', [name]);
@@ -97,6 +100,7 @@ app.delete('/api/schools/:id', requireRole('superadmin'), wrap(async (req, res) 
   }
 }));
 
+// ---------- ADMIN: classes ----------
 app.post('/api/classes', requireRole('admin'), wrap(async (req, res) => {
   const { grade, stream_name } = req.body;
   const { rows } = await pool.query(
@@ -111,15 +115,7 @@ app.get('/api/classes', requireRole('admin', 'teacher'), wrap(async (req, res) =
   res.json(rows);
 }));
 
-app.patch('/api/classes/:id', requireRole('admin'), wrap(async (req, res) => {
-  const { grade, stream_name } = req.body;
-  await pool.query(
-    'UPDATE classes SET grade=$1, stream_name=$2 WHERE id=$3 AND school_id=$4',
-    [grade, stream_name, req.params.id, req.user.school_id]
-  );
-  res.json({ ok: true });
-}));
-
+// ---------- ADMIN: learners ----------
 app.post('/api/learners', requireRole('admin'), wrap(async (req, res) => {
   const { class_id, upi_number, name, sex, admission_number, assessment_number } = req.body;
   const { rows } = await pool.query(
@@ -143,16 +139,7 @@ app.delete('/api/learners/:id', requireRole('admin'), wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
-app.patch('/api/learners/:id', requireRole('admin'), wrap(async (req, res) => {
-  const { name, sex, upi_number, admission_number, assessment_number } = req.body;
-  await pool.query(
-    `UPDATE learners SET name=$1, sex=$2, upi_number=$3, admission_number=$4, assessment_number=$5
-     WHERE id=$6 AND school_id=$7`,
-    [name, sex, upi_number, admission_number, assessment_number, req.params.id, req.user.school_id]
-  );
-  res.json({ ok: true });
-}));
-
+// ---------- ADMIN: subjects ----------
 app.post('/api/subjects', requireRole('admin'), wrap(async (req, res) => {
   const { grade, name } = req.body;
   const { rows } = await pool.query(
@@ -175,15 +162,7 @@ app.delete('/api/subjects/:id', requireRole('admin'), wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
-app.patch('/api/subjects/:id', requireRole('admin'), wrap(async (req, res) => {
-  const { grade, name } = req.body;
-  await pool.query(
-    'UPDATE subjects SET grade=$1, name=$2 WHERE id=$3 AND school_id=$4',
-    [grade, name, req.params.id, req.user.school_id]
-  );
-  res.json({ ok: true });
-}));
-
+// ---------- ADMIN: teachers ----------
 app.post('/api/teachers', requireRole('admin'), wrap(async (req, res) => {
   const { serial_number, full_name } = req.body;
   const firstName = full_name.trim().split(' ')[0].toLowerCase();
@@ -248,6 +227,7 @@ app.get('/api/teacher-assignments/mine', requireRole('teacher'), wrap(async (req
   res.json(rows);
 }));
 
+// ---------- ADMIN: exam sessions ----------
 app.post('/api/exam-sessions', requireRole('admin'), wrap(async (req, res) => {
   const { name } = req.body;
   const { rows } = await pool.query(
@@ -268,6 +248,7 @@ app.get('/api/exam-sessions', requireRole('admin', 'teacher'), wrap(async (req, 
   res.json(rows);
 }));
 
+// ---------- TEACHER: enter marks ----------
 app.post('/api/marks', requireRole('teacher'), wrap(async (req, res) => {
   const { exam_session_id, learner_id, subject_id, score } = req.body;
 
@@ -309,6 +290,7 @@ app.put('/api/marks/admin-override', requireRole('admin'), wrap(async (req, res)
   res.json({ ok: true });
 }));
 
+// ---------- MARK SHEET ----------
 app.get('/api/marksheet/:classId/:examSessionId', requireRole('admin', 'teacher'), wrap(async (req, res) => {
   const { classId, examSessionId } = req.params;
   const learnersRes = await pool.query('SELECT * FROM learners WHERE school_id=$1 AND class_id=$2 ORDER BY name', [req.user.school_id, classId]);
@@ -336,6 +318,7 @@ app.get('/api/marksheet/:classId/:examSessionId', requireRole('admin', 'teacher'
   });
 }));
 
+// ---------- GRADING BANDS ----------
 app.post('/api/grading-bands', requireRole('admin'), wrap(async (req, res) => {
   const { min_score, max_score, grade_letter, points } = req.body;
   const { rows } = await pool.query(
@@ -360,6 +343,7 @@ async function scoreToBand(schoolId, score) {
   return rows.find(b => score >= b.min_score && score <= b.max_score) || null;
 }
 
+// ---------- ANALYTICS ----------
 app.get('/api/analysis/:examSessionId/grade/:grade', requireRole('admin'), wrap(async (req, res) => {
   const { examSessionId, grade } = req.params;
   const learnersRes = await pool.query(`
@@ -486,6 +470,7 @@ app.get('/api/analysis/class/:classId/:examSessionId', requireRole('admin'), wra
   res.json({ class: cls, learnerRanking, subjectRanking, mostImproved, classTrend });
 }));
 
+// ---------- INDIVIDUAL REPORT ----------
 app.get('/api/report/:learnerId/:examSessionId', requireRole('admin'), wrap(async (req, res) => {
   const { learnerId, examSessionId } = req.params;
   const learnerRes = await pool.query('SELECT * FROM learners WHERE id=$1 AND school_id=$2', [learnerId, req.user.school_id]);
@@ -573,6 +558,8 @@ app.delete('/api/timetable/:id', requireRole('admin'), wrap(async (req, res) => 
   await pool.query('DELETE FROM timetable_entries WHERE id=$1 AND school_id=$2', [req.params.id, req.user.school_id]);
   res.json({ ok: true });
 }));
+
+// ---------- School profile ----------
 app.get('/api/school-settings', requireRole('admin'), wrap(async (req, res) => {
   const { rows } = await pool.query('SELECT * FROM school_settings WHERE school_id=$1', [req.user.school_id]);
   if (!rows[0]) {
@@ -742,10 +729,16 @@ app.patch('/api/school/name', requireRole('admin'), wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
+app.get('/api/session-check', requireRole('admin', 'teacher'), wrap(async (req, res) => {
+  res.json({ ok: true });
+}));
+
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 module.exports = app;
 
+// Only start a local server when run directly (e.g. `node server.js`).
+// On Vercel, api/index.js imports `app` instead and Vercel handles the listening.
 if (require.main === module) {
   const PORT = process.env.PORT || 4000;
   app.listen(PORT, () => console.log(`SIS backend running on http://localhost:${PORT}`));

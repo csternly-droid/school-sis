@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const pool = require('./db');
 const SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
 
 function signToken(payload) {
@@ -6,7 +7,7 @@ function signToken(payload) {
 }
 
 function requireRole(...roles) {
-  return (req, res, next) => {
+  return async (req, res, next) => {
     const header = req.headers.authorization;
     if (!header) return res.status(401).json({ error: 'No token provided' });
     const token = header.replace('Bearer ', '');
@@ -14,6 +15,12 @@ function requireRole(...roles) {
       const decoded = jwt.verify(token, SECRET);
       if (!roles.includes(decoded.role)) {
         return res.status(403).json({ error: 'Not authorized for this action' });
+      }
+      if ((decoded.role === 'admin' || decoded.role === 'teacher') && decoded.school_id) {
+        const { rows } = await pool.query('SELECT active FROM schools WHERE id=$1', [decoded.school_id]);
+        if (!rows[0] || rows[0].active === false) {
+          return res.status(403).json({ error: 'SCHOOL_DEACTIVATED' });
+        }
       }
       req.user = decoded;
       next();

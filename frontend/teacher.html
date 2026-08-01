@@ -95,7 +95,14 @@ async function api(path, options = {}) {
   if (token) headers['Authorization'] = 'Bearer ' + token;
   const res = await fetch(API_BASE + path, { ...options, headers });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || 'Request failed');
+  if (!res.ok) {
+    if (data.error === 'SCHOOL_DEACTIVATED') {
+      clearToken();
+      alert('This school has been deactivated by the system administrator. You have been logged out.');
+      location.reload();
+    }
+    throw new Error(data.error || 'Request failed');
+  }
   return data;
 }
 
@@ -137,12 +144,15 @@ document.getElementById('resetForm').addEventListener('submit', async (e) => {
   }
 });
 
+let sessionCheckInterval = null;
 function showDashboard() {
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('resetScreen').classList.add('hidden');
   document.getElementById('dashboard').classList.remove('hidden');
   loadAssignments();
   loadExamSessions();
+  if (sessionCheckInterval) clearInterval(sessionCheckInterval);
+  sessionCheckInterval = setInterval(() => { api('/api/session-check').catch(() => {}); }, 20000);
 }
 
 function logout() {
