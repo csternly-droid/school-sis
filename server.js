@@ -637,7 +637,43 @@ app.post('/api/school-settings', requireRole('admin'), wrap(async (req, res) => 
   res.json({ ok: true });
 }));
 
-const styleMap = {};
+app.post('/api/subject-lessons', requireRole('admin'), wrap(async (req, res) => {
+  const { grade, subject_id, lessons_per_week, schedule_style } = req.body;
+  await pool.query(`
+    INSERT INTO subject_lessons_per_week (school_id, grade, subject_id, lessons_per_week, schedule_style)
+    VALUES ($1,$2,$3,$4,$5)
+    ON CONFLICT (school_id, grade, subject_id) DO UPDATE SET lessons_per_week=EXCLUDED.lessons_per_week, schedule_style=EXCLUDED.schedule_style
+  `, [req.user.school_id, grade, subject_id, lessons_per_week, schedule_style || 'normal']);
+  res.json({ ok: true });
+}));
+
+app.get('/api/subject-lessons', requireRole('admin'), wrap(async (req, res) => {
+  const { grade } = req.query;
+  const { rows } = grade
+    ? await pool.query('SELECT * FROM subject_lessons_per_week WHERE school_id=$1 AND grade=$2', [req.user.school_id, grade])
+    : await pool.query('SELECT * FROM subject_lessons_per_week WHERE school_id=$1', [req.user.school_id]);
+  res.json(rows);
+}));
+
+app.post('/api/timetable/generate', requireRole('admin'), wrap(async (req, res) => {
+  const schoolId = req.user.school_id;
+
+  const settingsRes = await pool.query('SELECT * FROM school_settings WHERE school_id=$1', [schoolId]);
+  const settings = settingsRes.rows[0] || { lessons_per_day: 8 };
+  const lessonsPerDay = settings.lessons_per_day || 8;
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+
+  const classesRes = await pool.query('SELECT * FROM classes WHERE school_id=$1', [schoolId]);
+  const classes = classesRes.rows;
+
+  const assignRes = await pool.query('SELECT * FROM teacher_assignments WHERE school_id=$1', [schoolId]);
+  const assignments = assignRes.rows;
+
+  const lpwRes = await pool.query('SELECT * FROM subject_lessons_per_week WHERE school_id=$1', [schoolId]);
+  const lpwMap = {};
+  lpwRes.rows.forEach(r => { lpwMap[`${r.grade}-${r.subject_id}`] = r.lessons_per_week; });
+
+  const styleMap = {};
   lpwRes.rows.forEach(r => { styleMap[`${r.grade}-${r.subject_id}`] = r.schedule_style || 'normal'; });
 
   const requirements = [];
