@@ -299,10 +299,10 @@
         <input type="number" id="settingBreak2After" min="1" value="5">
         <label>Break 2 duration (minutes)</label>
         <input type="number" id="settingBreak2Duration" min="1" value="15">
-        <label>Lunch (Primary, Grade 1-6) - after which lesson number?</label>
-        <input type="number" id="settingLunchPrimaryAfter" min="1" value="4">
-        <label>Lunch (Junior Secondary, Grade 7-9) - after which lesson number?</label>
-        <input type="number" id="settingLunchJuniorAfter" min="1" value="5">
+  <label>Lessons after lunch - Primary (Grade 1-6)</label>
+        <input type="number" id="settingLessonsAfterLunchPrimary" min="0" value="4">
+        <label>Lessons after lunch - Junior Secondary (Grade 7-9)</label>
+        <input type="number" id="settingLessonsAfterLunchJunior" min="0" value="3">
         <label>Lunch duration (minutes)</label>
         <input type="number" id="settingLunchDuration" min="1" value="40">
         <button type="submit">Save Settings</button>
@@ -1084,8 +1084,8 @@ async function loadSchoolSettings() {
     document.getElementById('settingBreak1Duration').value = s.break1_duration;
     document.getElementById('settingBreak2After').value = s.break2_after_period;
     document.getElementById('settingBreak2Duration').value = s.break2_duration;
-    document.getElementById('settingLunchPrimaryAfter').value = s.lunch_after_period_primary;
-    document.getElementById('settingLunchJuniorAfter').value = s.lunch_after_period_junior;
+  document.getElementById('settingLessonsAfterLunchPrimary').value = Math.max(0, s.lessons_per_day - s.lunch_after_period_primary);
+    document.getElementById('settingLessonsAfterLunchJunior').value = Math.max(0, s.lessons_per_day - s.lunch_after_period_junior);
     document.getElementById('settingLunchDuration').value = s.lunch_duration;
   } catch (err) {
     document.getElementById('settingsMsg').innerHTML = `<div class="error">${err.message}</div>`;
@@ -1094,15 +1094,18 @@ async function loadSchoolSettings() {
 
 document.getElementById('settingsForm').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const lessonsPerDay = Number(document.getElementById('settingLessonsPerDay').value);
+  const lessonsAfterLunchPrimary = Number(document.getElementById('settingLessonsAfterLunchPrimary').value);
+  const lessonsAfterLunchJunior = Number(document.getElementById('settingLessonsAfterLunchJunior').value);
   const body = {
     day_start_time: document.getElementById('settingDayStart').value,
-    lessons_per_day: Number(document.getElementById('settingLessonsPerDay').value),
+    lessons_per_day: lessonsPerDay,
     break1_after_period: Number(document.getElementById('settingBreak1After').value),
     break1_duration: Number(document.getElementById('settingBreak1Duration').value),
     break2_after_period: Number(document.getElementById('settingBreak2After').value),
     break2_duration: Number(document.getElementById('settingBreak2Duration').value),
-    lunch_after_period_primary: Number(document.getElementById('settingLunchPrimaryAfter').value),
-    lunch_after_period_junior: Number(document.getElementById('settingLunchJuniorAfter').value),
+    lunch_after_period_primary: Math.max(0, lessonsPerDay - lessonsAfterLunchPrimary),
+    lunch_after_period_junior: Math.max(0, lessonsPerDay - lessonsAfterLunchJunior),
     lunch_duration: Number(document.getElementById('settingLunchDuration').value)
   };
   const msg = document.getElementById('settingsMsg');
