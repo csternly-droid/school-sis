@@ -323,7 +323,7 @@
         <option value="9">Grade 9</option>
       </select>
       <table id="lpwTable">
-        <thead><tr><th>Subject</th><th>Lessons per week</th><th></th></tr></thead>
+        <thead><tr><th>Subject</th><th>Lessons per week</th><th>Scheduling style</th><th></th></tr></thead>
         <tbody></tbody>
       </table>
       <div id="lpwMsg"></div>
@@ -410,9 +410,27 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 
 function logout() {
   clearToken();
+  clearTimeout(inactivityTimer);
   document.getElementById('dashboard').classList.add('hidden');
   document.getElementById('loginScreen').classList.remove('hidden');
 }
+
+// ====== AUTO LOGOUT AFTER 30 MINUTES OF INACTIVITY ======
+const INACTIVITY_LIMIT_MS = 30 * 60 * 1000;
+let inactivityTimer = null;
+
+function resetInactivityTimer() {
+  if (!getToken()) return;
+  clearTimeout(inactivityTimer);
+  inactivityTimer = setTimeout(() => {
+    logout();
+    alert('You have been logged out after 30 minutes of inactivity. Please log in again.');
+  }, INACTIVITY_LIMIT_MS);
+}
+
+['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(evt => {
+  document.addEventListener(evt, resetInactivityTimer);
+});
 
 let sessionCheckInterval = null;
 function showDashboard() {
@@ -427,8 +445,9 @@ function showDashboard() {
   loadSchoolInfo();
   loadSchoolSettings();
   loadLessonsPerWeek();
-  if (sessionCheckInterval) clearInterval(sessionCheckInterval);
+ if (sessionCheckInterval) clearInterval(sessionCheckInterval);
   sessionCheckInterval = setInterval(() => { api('/api/session-check').catch(() => {}); }, 20000);
+  resetInactivityTimer();
 }
 
 // If already logged in from before, skip straight to dashboard
@@ -1127,19 +1146,26 @@ async function loadLessonsPerWeek() {
   const msg = document.getElementById('lpwMsg');
   try {
     const subjects = currentSubjects.filter(s => String(s.grade) === String(grade));
-    const existing = await api(`/api/subject-lessons?grade=${grade}`);
+  const existing = await api(`/api/subject-lessons?grade=${grade}`);
     const existingMap = {};
-    existing.forEach(e => { existingMap[e.subject_id] = e.lessons_per_week; });
+    existing.forEach(e => { existingMap[e.subject_id] = e; });
     const tbody = document.querySelector('#lpwTable tbody');
     tbody.innerHTML = '';
     subjects.forEach(s => {
-      const val = existingMap[s.id] || '';
+      const row = existingMap[s.id];
+      const val = row ? row.lessons_per_week : '';
+      const style = row ? row.schedule_style : 'normal';
       tbody.innerHTML += `<tr><td>${s.name}</td>
         <td><input type="number" min="0" max="20" id="lpw-${s.id}" value="${val}"></td>
+        <td><select id="lpw-style-${s.id}">
+          <option value="normal" ${style === 'normal' ? 'selected' : ''}>Normal (spread across week)</option>
+          <option value="daily" ${style === 'daily' ? 'selected' : ''}>Daily (one lesson every school day)</option>
+          <option value="double" ${style === 'double' ? 'selected' : ''}>Double lesson (2 back-to-back periods)</option>
+        </select></td>
         <td><button onclick="saveLessonsPerWeek(${grade}, ${s.id})">Save</button></td></tr>`;
     });
     if (!subjects.length) {
-      tbody.innerHTML = '<tr><td colspan="3">No subjects added for this grade yet - add them under the Subjects tab first.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="4">No subjects added for this grade yet - add them under the Subjects tab first.</td></tr>';
     }
     msg.innerHTML = '';
   } catch (err) {
@@ -1149,8 +1175,9 @@ async function loadLessonsPerWeek() {
 
 async function saveLessonsPerWeek(grade, subjectId) {
   const lessons_per_week = Number(document.getElementById(`lpw-${subjectId}`).value);
+  const schedule_style = document.getElementById(`lpw-style-${subjectId}`).value;
   try {
-    await api('/api/subject-lessons', { method: 'POST', body: JSON.stringify({ grade, subject_id: subjectId, lessons_per_week }) });
+    await api('/api/subject-lessons', { method: 'POST', body: JSON.stringify({ grade, subject_id: subjectId, lessons_per_week, schedule_style }) });
     document.getElementById('lpwMsg').innerHTML = '<div class="success">Saved.</div>';
   } catch (err) {
     document.getElementById('lpwMsg').innerHTML = `<div class="error">${err.message}</div>`;

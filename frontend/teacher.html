@@ -151,16 +151,35 @@ function showDashboard() {
   document.getElementById('dashboard').classList.remove('hidden');
   loadAssignments();
   loadExamSessions();
-  if (sessionCheckInterval) clearInterval(sessionCheckInterval);
+if (sessionCheckInterval) clearInterval(sessionCheckInterval);
   sessionCheckInterval = setInterval(() => { api('/api/session-check').catch(() => {}); }, 20000);
+  resetInactivityTimer();
 }
 
 function logout() {
   clearToken();
+  clearTimeout(inactivityTimer);
   document.getElementById('dashboard').classList.add('hidden');
   document.getElementById('resetScreen').classList.add('hidden');
   document.getElementById('loginScreen').classList.remove('hidden');
 }
+
+// ====== AUTO LOGOUT AFTER 30 MINUTES OF INACTIVITY ======
+const INACTIVITY_LIMIT_MS = 30 * 60 * 1000;
+let inactivityTimer = null;
+
+function resetInactivityTimer() {
+  if (!getToken()) return;
+  clearTimeout(inactivityTimer);
+  inactivityTimer = setTimeout(() => {
+    logout();
+    alert('You have been logged out after 30 minutes of inactivity. Please log in again.');
+  }, INACTIVITY_LIMIT_MS);
+}
+
+['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(evt => {
+  document.addEventListener(evt, resetInactivityTimer);
+});
 
 if (getToken()) showDashboard();
 

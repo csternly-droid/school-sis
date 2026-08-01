@@ -637,41 +637,8 @@ app.post('/api/school-settings', requireRole('admin'), wrap(async (req, res) => 
   res.json({ ok: true });
 }));
 
-app.post('/api/subject-lessons', requireRole('admin'), wrap(async (req, res) => {
-  const { grade, subject_id, lessons_per_week } = req.body;
-  await pool.query(`
-    INSERT INTO subject_lessons_per_week (school_id, grade, subject_id, lessons_per_week)
-    VALUES ($1,$2,$3,$4)
-    ON CONFLICT (school_id, grade, subject_id) DO UPDATE SET lessons_per_week=EXCLUDED.lessons_per_week
-  `, [req.user.school_id, grade, subject_id, lessons_per_week]);
-  res.json({ ok: true });
-}));
-
-app.get('/api/subject-lessons', requireRole('admin'), wrap(async (req, res) => {
-  const { grade } = req.query;
-  const { rows } = grade
-    ? await pool.query('SELECT * FROM subject_lessons_per_week WHERE school_id=$1 AND grade=$2', [req.user.school_id, grade])
-    : await pool.query('SELECT * FROM subject_lessons_per_week WHERE school_id=$1', [req.user.school_id]);
-  res.json(rows);
-}));
-
-app.post('/api/timetable/generate', requireRole('admin'), wrap(async (req, res) => {
-  const schoolId = req.user.school_id;
-
-  const settingsRes = await pool.query('SELECT * FROM school_settings WHERE school_id=$1', [schoolId]);
-  const settings = settingsRes.rows[0] || { lessons_per_day: 8 };
-  const lessonsPerDay = settings.lessons_per_day || 8;
-  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-
-  const classesRes = await pool.query('SELECT * FROM classes WHERE school_id=$1', [schoolId]);
-  const classes = classesRes.rows;
-
-  const assignRes = await pool.query('SELECT * FROM teacher_assignments WHERE school_id=$1', [schoolId]);
-  const assignments = assignRes.rows;
-
-  const lpwRes = await pool.query('SELECT * FROM subject_lessons_per_week WHERE school_id=$1', [schoolId]);
-  const lpwMap = {};
-  lpwRes.rows.forEach(r => { lpwMap[`${r.grade}-${r.subject_id}`] = r.lessons_per_week; });
+const styleMap = {};
+  lpwRes.rows.forEach(r => { styleMap[`${r.grade}-${r.subject_id}`] = r.schedule_style || 'normal'; });
 
   const requirements = [];
   for (const a of assignments) {
@@ -679,7 +646,8 @@ app.post('/api/timetable/generate', requireRole('admin'), wrap(async (req, res) 
     if (!cls) continue;
     const count = lpwMap[`${cls.grade}-${a.subject_id}`];
     if (!count) continue;
-    requirements.push({ class_id: a.class_id, subject_id: a.subject_id, teacher_id: a.teacher_id, count });
+    const schedule_style = styleMap[`${cls.grade}-${a.subject_id}`] || 'normal';
+    requirements.push({ class_id: a.class_id, subject_id: a.subject_id, teacher_id: a.teacher_id, count, schedule_style });
   }
 
   requirements.sort((x, y) => y.count - x.count);
@@ -699,31 +667,94 @@ app.post('/api/timetable/generate', requireRole('admin'), wrap(async (req, res) 
   const placements = [];
   const unplaced = [];
 
+  function place(classId, teacherId, subjectId, day, period) {
+    const classKey = `${classId}-${day}-${period}`;
+    const teacherKey = `${teacherId}-${day}-${period}`;
+    if (classBusy[classKey] || teacherBusy[teacherKey]) return false;
+    classBusy[classKey] = true;
+    teacherBusy[teacherKey] = true;
+    const daySubjectKey = `${classId}-${day}-${subjectId}`;
+    classDaySubject[daySubjectKey] = (classDaySubject[daySubjectKey] || 0) + 1;
+    placements.push({ class_id: classId, subject_id: subjectId, teacher_id: teacherId, day_of_week: day, period_number: period });
+    return true;
+  }
+
   for (const requirement of requirements) {
+    const style = requirement.schedule_style;
     let placedCount = 0;
-    for (let pass = 0; pass < 2 && placedCount < requirement.count; pass++) {
+    const usedDays = new Set();
+
+    if (style === 'double') {
+      const numDoubles = Math.floor(requirement.count / 2);
+      const hasSingleLeftover = requirement.count % 2 === 1;
+
+      for (let d = 0; d < numDoubles; d++) {
+        let placedThisDouble = false;
+        const shuffledDays = shuffle(days.filter(day => !usedDays.has(day)));
+        for (const day of shuffledDays) {
+          if (placedThisDouble) break;
+          const shuffledStarts = shuffle(Array.from({ length: lessonsPerDay - 1 }, (_, i) => i + 1));
+          for (const startPeriod of shuffledStarts) {
+            const p1 = startPeriod, p2 = startPeriod + 1;
+            const cKey1 = `${requirement.class_id}-${day}-${p1}`, cKey2 = `${requirement.class_id}-${day}-${p2}`;
+            const tKey1 = `${requirement.teacher_id}-${day}-${p1}`, tKey2 = `${requirement.teacher_id}-${day}-${p2}`;
+            if (classBusy[cKey1] || classBusy[cKey2] || teacherBusy[tKey1] || teacherBusy[tKey2]) continue;
+            place(requirement.class_id, requirement.teacher_id, requirement.subject_id, day, p1);
+            place(requirement.class_id, requirement.teacher_id, requirement.subject_id, day, p2);
+            placedCount += 2;
+            usedDays.add(day);
+            placedThisDouble = true;
+            break;
+          }
+        }
+      }
+
+      if (hasSingleLeftover) {
+        const orderedDays = [...days].sort((a, b) => (usedDays.has(a) ? 1 : 0) - (usedDays.has(b) ? 1 : 0));
+        const shuffledDays = shuffle(orderedDays);
+        let placedSingle = false;
+        for (const day of shuffledDays) {
+          if (placedSingle) break;
+          const shuffledPeriods = shuffle(Array.from({ length: lessonsPerDay }, (_, i) => i + 1));
+          for (const period of shuffledPeriods) {
+            if (place(requirement.class_id, requirement.teacher_id, requirement.subject_id, day, period)) {
+              placedCount++;
+              placedSingle = true;
+              break;
+            }
+          }
+        }
+      }
+    } else if (style === 'daily') {
       const shuffledDays = shuffle(days);
       for (const day of shuffledDays) {
         if (placedCount >= requirement.count) break;
-        const daySubjectKey = `${requirement.class_id}-${day}-${requirement.subject_id}`;
-        if (pass === 0 && classDaySubject[daySubjectKey]) continue;
         const shuffledPeriods = shuffle(Array.from({ length: lessonsPerDay }, (_, i) => i + 1));
         for (const period of shuffledPeriods) {
+          if (place(requirement.class_id, requirement.teacher_id, requirement.subject_id, day, period)) {
+            placedCount++;
+            break;
+          }
+        }
+      }
+    } else {
+      for (let pass = 0; pass < 2 && placedCount < requirement.count; pass++) {
+        const shuffledDays = shuffle(days);
+        for (const day of shuffledDays) {
           if (placedCount >= requirement.count) break;
-          const classKey = `${requirement.class_id}-${day}-${period}`;
-          const teacherKey = `${requirement.teacher_id}-${day}-${period}`;
-          if (classBusy[classKey] || teacherBusy[teacherKey]) continue;
-          classBusy[classKey] = true;
-          teacherBusy[teacherKey] = true;
-          classDaySubject[daySubjectKey] = (classDaySubject[daySubjectKey] || 0) + 1;
-          placements.push({
-            class_id: requirement.class_id, subject_id: requirement.subject_id,
-            teacher_id: requirement.teacher_id, day_of_week: day, period_number: period
-          });
-          placedCount++;
+          const daySubjectKey = `${requirement.class_id}-${day}-${requirement.subject_id}`;
+          if (pass === 0 && classDaySubject[daySubjectKey]) continue;
+          const shuffledPeriods = shuffle(Array.from({ length: lessonsPerDay }, (_, i) => i + 1));
+          for (const period of shuffledPeriods) {
+            if (placedCount >= requirement.count) break;
+            if (place(requirement.class_id, requirement.teacher_id, requirement.subject_id, day, period)) {
+              placedCount++;
+            }
+          }
         }
       }
     }
+
     if (placedCount < requirement.count) {
       unplaced.push({
         class_id: requirement.class_id, subject_id: requirement.subject_id,
