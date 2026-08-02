@@ -3,6 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <title>Super Admin - School SIS</title>
+<link rel="manifest" href="manifest-super.json">
+<meta name="theme-color" content="#1565C0">
+<link rel="apple-touch-icon" href="icons/icon-192-super.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SCO Super">
 <style>
   * { box-sizing: border-box; }
   body { font-family: Arial, sans-serif; margin: 0; background: #f4f6f8; color: #222; }
@@ -173,6 +179,13 @@ document.getElementById('schoolForm').addEventListener('submit', async (e) => {
     msg.innerHTML = `<div class="error">${err.message}</div>`;
   }
 });
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
 </script>
 </body>
 </html>
