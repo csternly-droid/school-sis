@@ -3,6 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <title>School Admin</title>
+<link rel="manifest" href="manifest-admin.json">
+<meta name="theme-color" content="#1565C0">
+<link rel="apple-touch-icon" href="icons/icon-192-admin.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SCO Admin">
 <style>
   * { box-sizing: border-box; }
   body { font-family: Arial, sans-serif; margin: 0; background: #f4f6f8; color: #222; }
@@ -1356,6 +1362,13 @@ async function loadSchoolInfo() {
   } catch (err) {
     // If this fails, forms just show without the header - not critical.
   }
+}
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
 }
 </script>
 </body>

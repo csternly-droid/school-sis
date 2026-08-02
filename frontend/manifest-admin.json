@@ -1,0 +1,12 @@
+{
+  "name": "SCO Admin",
+  "short_name": "SCO Admin",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f4f6f8",
+  "theme_color": "#1565C0",
+  "icons": [
+    { "src": "icons/icon-192-admin.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512-admin.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
