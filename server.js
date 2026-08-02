@@ -5,9 +5,14 @@ const bcrypt = require('bcryptjs');
 const pool = require('./db');
 const { signToken, requireRole } = require('./auth');
 
+const path = require('path');
+
+const path = require('path');
+
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'frontend')));
 
 // Small helper so we don't repeat try/catch everywhere
 const wrap = (fn) => (req, res) => fn(req, res).catch((err) => {
