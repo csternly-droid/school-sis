@@ -565,7 +565,10 @@ const withGrades = [];
     WHERE m.learner_id=$1 GROUP BY es.id, es.name ORDER BY es.id
   `, [learnerId]);
 
-  const remarkRes = await pool.query('SELECT * FROM report_remarks WHERE learner_id=$1 AND exam_session_id=$2', [learnerId, examSessionId]);
+  const remarkRes = await pool.query(
+    'SELECT * FROM report_remarks WHERE learner_id=$1 AND exam_session_id=$2 ORDER BY id DESC LIMIT 1',
+    [learnerId, examSessionId]
+  );
 
 res.json({
     learner,
@@ -582,6 +585,10 @@ res.json({
 app.post('/api/report/:learnerId/:examSessionId/remarks', requireRole('admin'), wrap(async (req, res) => {
   const { learnerId, examSessionId } = req.params;
   const { class_teacher_remark, head_teacher_remark, parent_remark, term_open_date, term_close_date } = req.body;
+  await pool.query(
+    'DELETE FROM report_remarks WHERE school_id=$1 AND learner_id=$2 AND exam_session_id=$3',
+    [req.user.school_id, learnerId, examSessionId]
+  );
   await pool.query(`
     INSERT INTO report_remarks (school_id, learner_id, exam_session_id, class_teacher_remark, head_teacher_remark, parent_remark, term_open_date, term_close_date)
     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)

@@ -38,7 +38,12 @@
     .printable, .printable * { visibility: visible; }
     .printable { position: absolute; left: 0; top: 0; width: 100%; }
     .no-print { display: none !important; }
+    .report-sheet, .timetable-sheet { page-break-after: always; break-after: page; }
+    .report-sheet:last-child, .timetable-sheet:last-child { page-break-after: auto; break-after: auto; }
   }
+  .report-sheet { padding: 16px 8px; }
+  .report-sheet h2, .timetable-sheet h2 { margin: 4px 0; }
+  .sheet-line { border-bottom: 1px solid #999; display: inline-block; min-width: 220px; }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
@@ -225,27 +230,35 @@
 
     <!-- ANALYSIS TAB -->
     <div id="tab-analysis" class="tab hidden">
-      <h2 id="analysisSchoolHeader" style="text-align:center;"></h2>
       <h2>Results Analysis</h2>
-      <div class="row">
+      <div class="row no-print">
         <select id="analysisClassSelect"></select>
         <select id="analysisExamSelect"></select>
         <button onclick="loadAnalysis()">Run Analysis</button>
       </div>
-      <div id="analysisMsg"></div>
-      <div id="classTrendBox"></div>
-      <h3>Learner Ranking (best to worst), with each subject shown</h3>
-      <div id="learnerRankContainer" style="overflow-x:auto;"></div>
-      <h3>Most Improved Learners (vs previous exam)</h3>
-      <table id="improvedTable">
-        <thead><tr><th>Position</th><th>Name</th><th>Previous Average</th><th>Current Average</th><th>Change</th></tr></thead>
-        <tbody></tbody>
-      </table>
-      <h3>Subject Ranking (best to worst, by mean)</h3>
-      <table id="subjectRankTable">
-        <thead><tr><th>Subject</th><th>Average Score</th></tr></thead>
-        <tbody></tbody>
-      </table>
+      <div class="row no-print">
+        <button onclick="downloadArea('analysisPrintArea', analysisFileName(), 'landscape')">Download Analysis (PDF)</button>
+        <button onclick="printArea('analysisPrintArea')">Print Analysis</button>
+      </div>
+      <div id="analysisMsg" class="no-print"></div>
+
+      <div id="analysisPrintArea">
+        <h2 id="analysisSchoolHeader" style="text-align:center;"></h2>
+        <h3 id="analysisTitle" style="text-align:center;"></h3>
+        <div id="classTrendBox"></div>
+        <h3>Learner Ranking (best to worst), with each subject shown</h3>
+        <div id="learnerRankContainer" style="overflow-x:auto;"></div>
+        <h3>Most Improved Learners (vs previous exam)</h3>
+        <table id="improvedTable">
+          <thead><tr><th>Position</th><th>Name</th><th>Previous Average</th><th>Current Average</th><th>Change</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <h3>Subject Ranking (best to worst, by mean)</h3>
+        <table id="subjectRankTable">
+          <thead><tr><th>Subject</th><th>Average Score</th><th>Performance Level</th><th>Entries</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </div>
 
     <!-- REPORT TAB -->
@@ -257,30 +270,54 @@
         <select id="reportExamSelect"></select>
         <button onclick="loadReport()">Generate Report</button>
       </div>
+      <div class="row no-print">
+        <button onclick="downloadAllClassReports('combined')">Download All Reports For Class (one PDF, one page each)</button>
+        <button onclick="downloadAllClassReports('separate')">Download As Separate Files</button>
+        <button onclick="printAllClassReports()">Print All Reports For Class</button>
+      </div>
       <div id="reportMsg" class="no-print"></div>
+      <div id="bulkReportMsg" class="no-print"></div>
 
       <div id="reportOutput" class="printable" style="display:none; margin-top:20px; border:1px solid #ddd; padding:20px; border-radius:8px;">
         <h2 id="reportSchoolHeader" style="text-align:center;"></h2>
         <h2 id="reportLearnerName"></h2>
         <p id="reportLearnerMeta"></p>
         <table id="reportSubjectsTable">
-          <thead><tr><th>Subject</th><th>Score</th><th>Grade</th></tr></thead>
+          <thead><tr><th>Subject</th><th>Score</th><th>Grade</th><th>Points</th></tr></thead>
           <tbody></tbody>
         </table>
+        <p id="reportTotals" style="font-weight:bold;"></p>
         <p id="reportPosition" style="font-weight:bold;"></p>
         <h3>Performance Over Time</h3>
         <div id="reportGraph"></div>
+        <h3>Term Dates</h3>
+        <div class="row">
+          <div>
+            <label>Closing Day (this term)</label>
+            <input type="date" id="termCloseDate">
+          </div>
+          <div>
+            <label>Opening Day (next term)</label>
+            <input type="date" id="termOpenDate">
+          </div>
+        </div>
         <h3>Remarks</h3>
         <label>Class Teacher's Remark</label>
         <textarea id="classTeacherRemark"></textarea>
         <label>Head Teacher's Remark</label>
         <textarea id="headTeacherRemark"></textarea>
+        <label>Parent's / Guardian's Remark</label>
+        <textarea id="parentRemark"></textarea>
+        <p style="margin-top:16px;">Parent's / Guardian's Signature: ______________________________</p>
         <div class="no-print">
-          <button onclick="saveRemarks()">Save Remarks</button>
-          <button onclick="window.print()">Print Report</button>
-          <button onclick="downloadArea('reportOutput', 'learner_report.pdf')">Download Report (PDF)</button>
+          <button onclick="saveRemarks()">Save Remarks &amp; Dates</button>
+          <button onclick="printArea('reportOutput')">Print Report</button>
+          <button onclick="downloadCurrentReport()">Download Report (PDF)</button>
         </div>
       </div>
+
+      <!-- Off-screen container used to build bulk class reports -->
+      <div id="bulkReportArea" class="no-print" style="position:absolute; left:-10000px; top:0; width:1000px;"></div>
     </div>
 
     <!-- TIMETABLE TAB -->
@@ -350,6 +387,13 @@
         <h3 id="classTimetableTitle" style="text-align:center;"></h3>
         <div id="timetableContainer" style="overflow-x:auto;"></div>
       </div>
+
+      <h3>Download All Class Timetables (separately by section)</h3>
+      <p>Primary covers Grade 1-6. Junior Secondary covers Grade 7-9. Each download is its own file, with one class per page.</p>
+      <button onclick="downloadTimetablesByBand('primary')">Download All Primary Timetables (PDF)</button>
+      <button onclick="downloadTimetablesByBand('junior')">Download All Junior Secondary Timetables (PDF)</button>
+      <div id="bulkTimetableMsg"></div>
+      <div id="bulkTimetableArea" class="no-print" style="position:absolute; left:-10000px; top:0; width:1100px;"></div>
 
       <h3>5. Individual Teacher Timetable</h3>
       <select id="timetableTeacherSelect"></select>
@@ -922,17 +966,22 @@ async function loadAnalysis() {
       trendBox.innerHTML = `<p style="color:#555;">No previous exam session found for this class yet, so no trend to compare.</p>`;
     }
 
-    // Learner ranking with subject breakdown
+    // Learner ranking with subject breakdown, total points and performance levels
     const container = document.getElementById('learnerRankContainer');
     if (data.learnerRanking.length) {
       const subjectNames = data.learnerRanking[0].subjects.map(s => s.subject);
       let html = '<table><thead><tr><th>Position</th><th>Name</th>';
       subjectNames.forEach(name => { html += `<th>${name}</th>`; });
-      html += '<th>Average</th></tr></thead><tbody>';
+      html += '<th>Total Points</th><th>Average</th><th>Performance Level</th></tr></thead><tbody>';
       data.learnerRanking.forEach(r => {
         html += `<tr><td>${r.position}</td><td>${r.learner.name}</td>`;
-        r.subjects.forEach(s => { html += `<td>${s.score === null ? '-' : s.score}</td>`; });
-        html += `<td>${r.mean.toFixed(1)}</td></tr>`;
+        r.subjects.forEach(s => {
+          const cell = s.score === null ? '-' : `${s.score}${s.level ? ` (${s.level})` : ''}`;
+          html += `<td>${cell}</td>`;
+        });
+        html += `<td>${Number(r.totalPoints || 0).toFixed(1)}</td>`;
+        html += `<td>${r.mean.toFixed(1)}</td>`;
+        html += `<td>${r.overallLevel || '-'}</td></tr>`;
       });
       html += '</tbody></table>';
       container.innerHTML = html;
@@ -956,13 +1005,36 @@ async function loadAnalysis() {
     const subjectBody = document.querySelector('#subjectRankTable tbody');
     subjectBody.innerHTML = '';
     data.subjectRanking.forEach(s => {
-      subjectBody.innerHTML += `<tr><td>${s.subject}</td><td>${s.mean.toFixed(1)}</td></tr>`;
+      subjectBody.innerHTML += `<tr><td>${s.subject}</td><td>${s.mean.toFixed(1)}</td><td>${s.level || '-'}</td><td>${s.entries}</td></tr>`;
     });
+
+    // Title used in the printed/downloaded analysis
+    const clsName = data.class ? `${data.class.stream_name} (Grade ${data.class.grade})` : '';
+    const examName = examSelectText('analysisExamSelect');
+    document.getElementById('analysisTitle').textContent = `Results Analysis - ${clsName} - ${examName}`;
+    const hdr = document.getElementById('analysisSchoolHeader');
+    if (hdr) hdr.textContent = (schoolName || '').toUpperCase();
 
     msg.innerHTML = '';
   } catch (err) {
     msg.innerHTML = `<div class="error">${err.message}</div>`;
   }
+}
+
+function examSelectText(selectId) {
+  const sel = document.getElementById(selectId);
+  if (!sel || sel.selectedIndex < 0) return '';
+  return sel.options[sel.selectedIndex].textContent;
+}
+
+function safeFileName(text) {
+  return String(text || 'file').replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '').toLowerCase();
+}
+
+function analysisFileName() {
+  const cls = examSelectText('analysisClassSelect');
+  const exam = examSelectText('analysisExamSelect');
+  return `analysis_${safeFileName(cls)}_${safeFileName(exam)}.pdf`;
 }
 
 // ====== INDIVIDUAL REPORT ======
@@ -1022,6 +1094,33 @@ function buildLineGraph(history) {
 
 let currentReportLearnerId = null;
 let currentReportExamId = null;
+let currentReportData = null;
+
+// Downloads the report currently on screen, rendered as clean text (not form fields).
+async function downloadCurrentReport() {
+  const msg = document.getElementById('reportMsg');
+  if (!currentReportData) { msg.innerHTML = '<div class="error">Generate a report first.</div>'; return; }
+  const area = document.getElementById('bulkReportArea');
+  const data = JSON.parse(JSON.stringify(currentReportData));
+  data.remark = data.remark || {};
+  data.remark.class_teacher_remark = document.getElementById('classTeacherRemark').value;
+  data.remark.head_teacher_remark = document.getElementById('headTeacherRemark').value;
+  data.remark.parent_remark = document.getElementById('parentRemark').value;
+  data.remark.term_close_date = document.getElementById('termCloseDate').value;
+  data.remark.term_open_date = document.getElementById('termOpenDate').value;
+  try {
+    area.innerHTML = buildReportHTML(data, {
+      className: examSelectText('reportClassSelect'),
+      examName: examSelectText('reportExamSelect')
+    });
+    await pdfFromElement(area, `report_${safeFileName(data.learner.name)}.pdf`, 'portrait');
+    area.innerHTML = '';
+    msg.innerHTML = '<div class="success">Report downloaded.</div>';
+  } catch (err) {
+    area.innerHTML = '';
+    msg.innerHTML = `<div class="error">${err.message}</div>`;
+  }
+}
 
 async function loadReport() {
   const learnerId = document.getElementById('reportLearnerSelect').value;
@@ -1032,6 +1131,7 @@ async function loadReport() {
     const data = await api(`/api/report/${learnerId}/${examId}`);
     currentReportLearnerId = learnerId;
     currentReportExamId = examId;
+    currentReportData = data;
 
     document.getElementById('reportLearnerName').textContent = data.learner.name;
     document.getElementById('reportLearnerMeta').textContent =
@@ -1040,9 +1140,13 @@ async function loadReport() {
     const subjBody = document.querySelector('#reportSubjectsTable tbody');
     subjBody.innerHTML = '';
     data.marks.forEach(m => {
-      const gradeLabel = m.band ? `${m.band.grade_letter} (${m.band.points} pts)` : '-';
-      subjBody.innerHTML += `<tr><td>${m.subject_name}</td><td>${m.score}</td><td>${gradeLabel}</td></tr>`;
+      const gradeLabel = m.band ? m.band.grade_letter : '-';
+      const pointsLabel = m.band ? m.band.points : '-';
+      subjBody.innerHTML += `<tr><td>${m.subject_name}</td><td>${m.score}</td><td>${gradeLabel}</td><td>${pointsLabel}</td></tr>`;
     });
+
+    document.getElementById('reportTotals').textContent =
+      `Total Points: ${Number(data.totalPoints || 0).toFixed(1)} | Average Score: ${Number(data.meanScore || 0).toFixed(1)} | Performance Level: ${data.overallBand ? data.overallBand.grade_letter : '-'}`;
 
     document.getElementById('reportPosition').textContent =
       `Class Position: ${data.position} out of ${data.totalInClass}`;
@@ -1051,6 +1155,9 @@ async function loadReport() {
 
     document.getElementById('classTeacherRemark').value = data.remark.class_teacher_remark || '';
     document.getElementById('headTeacherRemark').value = data.remark.head_teacher_remark || '';
+    document.getElementById('parentRemark').value = data.remark.parent_remark || '';
+    document.getElementById('termCloseDate').value = data.remark.term_close_date || '';
+    document.getElementById('termOpenDate').value = data.remark.term_open_date || '';
 
     document.getElementById('reportOutput').style.display = 'block';
     msg.innerHTML = '';
@@ -1063,14 +1170,133 @@ async function saveRemarks() {
   if (!currentReportLearnerId || !currentReportExamId) return;
   const class_teacher_remark = document.getElementById('classTeacherRemark').value;
   const head_teacher_remark = document.getElementById('headTeacherRemark').value;
+  const parent_remark = document.getElementById('parentRemark').value;
+  const term_close_date = document.getElementById('termCloseDate').value;
+  const term_open_date = document.getElementById('termOpenDate').value;
   try {
     await api(`/api/report/${currentReportLearnerId}/${currentReportExamId}/remarks`, {
       method: 'POST',
-      body: JSON.stringify({ class_teacher_remark, head_teacher_remark })
+      body: JSON.stringify({ class_teacher_remark, head_teacher_remark, parent_remark, term_open_date, term_close_date })
     });
-    document.getElementById('reportMsg').innerHTML = '<div class="success">Remarks saved.</div>';
+    document.getElementById('reportMsg').innerHTML = '<div class="success">Remarks and term dates saved.</div>';
   } catch (err) {
     document.getElementById('reportMsg').innerHTML = `<div class="error">${err.message}</div>`;
+  }
+}
+
+// ====== BULK CLASS REPORTS ======
+function escapeHtml(text) {
+  return String(text == null ? '' : text)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function formatDateLabel(value) {
+  if (!value) return '__________________';
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return escapeHtml(value);
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+// Builds one complete, self-contained learner report sheet.
+function buildReportHTML(data, opts = {}) {
+  const r = data.remark || {};
+  let rows = '';
+  data.marks.forEach(m => {
+    rows += `<tr><td>${escapeHtml(m.subject_name)}</td><td>${m.score}</td>
+      <td>${m.band ? escapeHtml(m.band.grade_letter) : '-'}</td>
+      <td>${m.band ? m.band.points : '-'}</td></tr>`;
+  });
+  if (!rows) rows = '<tr><td colspan="4">No marks recorded for this exam session.</td></tr>';
+
+  return `
+  <div class="report-sheet">
+    <h2 style="text-align:center;">${escapeHtml((schoolName || '').toUpperCase())}</h2>
+    <h3 style="text-align:center;">LEARNER'S PROGRESS REPORT</h3>
+    <p style="text-align:center;margin:2px 0;">${escapeHtml(opts.className || '')} &nbsp;|&nbsp; ${escapeHtml(opts.examName || '')}</p>
+    <h3 style="margin-bottom:2px;">${escapeHtml(data.learner.name)}</h3>
+    <p style="margin-top:0;">Admission #: ${escapeHtml(data.learner.admission_number)} | UPI: ${escapeHtml(data.learner.upi_number)} | Sex: ${escapeHtml(data.learner.sex || '-')}</p>
+    <table>
+      <thead><tr><th>Subject</th><th>Score</th><th>Grade</th><th>Points</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p style="font-weight:bold;">Total Points: ${Number(data.totalPoints || 0).toFixed(1)} |
+      Average Score: ${Number(data.meanScore || 0).toFixed(1)} |
+      Performance Level: ${data.overallBand ? escapeHtml(data.overallBand.grade_letter) : '-'}</p>
+    <p style="font-weight:bold;">Class Position: ${data.position} out of ${data.totalInClass}</p>
+    <h4>Performance Over Time</h4>
+    ${buildLineGraph(data.history)}
+    <p><strong>Closing Day:</strong> ${formatDateLabel(r.term_close_date)}
+       &nbsp;&nbsp;<strong>Opening Day (next term):</strong> ${formatDateLabel(r.term_open_date)}</p>
+    <h4>Remarks</h4>
+    <p><strong>Class Teacher's Remark:</strong> ${escapeHtml(r.class_teacher_remark || '')}</p>
+    <p><strong>Head Teacher's Remark:</strong> ${escapeHtml(r.head_teacher_remark || '')}</p>
+    <p><strong>Parent's / Guardian's Remark:</strong> ${escapeHtml(r.parent_remark || '')}</p>
+    <p style="margin-top:14px;">Parent's / Guardian's Signature: <span class="sheet-line">&nbsp;</span></p>
+  </div>`;
+}
+
+async function fetchClassReports(msgEl) {
+  const classId = document.getElementById('reportClassSelect').value;
+  const examId = document.getElementById('reportExamSelect').value;
+  if (!classId || !examId) throw new Error('Choose a class and an exam session first.');
+  const learners = await api(`/api/classes/${classId}/list`);
+  if (!learners.length) throw new Error('This class has no learners yet.');
+  const reports = [];
+  for (let i = 0; i < learners.length; i++) {
+    if (msgEl) msgEl.innerHTML = `Building report ${i + 1} of ${learners.length}...`;
+    const data = await api(`/api/report/${learners[i].id}/${examId}`);
+    reports.push({ learner: learners[i], data });
+  }
+  return reports;
+}
+
+async function downloadAllClassReports(mode) {
+  const msg = document.getElementById('bulkReportMsg');
+  const area = document.getElementById('bulkReportArea');
+  const className = examSelectText('reportClassSelect');
+  const examName = examSelectText('reportExamSelect');
+  try {
+    const reports = await fetchClassReports(msg);
+    if (mode === 'separate') {
+      for (let i = 0; i < reports.length; i++) {
+        area.innerHTML = buildReportHTML(reports[i].data, { className, examName });
+        msg.innerHTML = `Downloading file ${i + 1} of ${reports.length}...`;
+        await pdfFromElement(area, `report_${safeFileName(reports[i].learner.name)}.pdf`, 'portrait');
+      }
+      msg.innerHTML = `<div class="success">Downloaded ${reports.length} individual report files. If your browser asked permission for multiple downloads, allow it.</div>`;
+    } else {
+      area.innerHTML = reports.map(r => buildReportHTML(r.data, { className, examName })).join('');
+      msg.innerHTML = 'Creating PDF...';
+      await pdfFromElement(area, `reports_${safeFileName(className)}_${safeFileName(examName)}.pdf`, 'portrait');
+      msg.innerHTML = `<div class="success">Downloaded ${reports.length} reports - each learner is on its own page, so they print as individual reports.</div>`;
+    }
+    area.innerHTML = '';
+  } catch (err) {
+    area.innerHTML = '';
+    msg.innerHTML = `<div class="error">${err.message}</div>`;
+  }
+}
+
+async function printAllClassReports() {
+  const msg = document.getElementById('bulkReportMsg');
+  const area = document.getElementById('bulkReportArea');
+  const className = examSelectText('reportClassSelect');
+  const examName = examSelectText('reportExamSelect');
+  try {
+    const reports = await fetchClassReports(msg);
+    area.innerHTML = reports.map(r => buildReportHTML(r.data, { className, examName })).join('');
+    area.classList.remove('no-print');
+    area.style.left = '0';
+    printArea('bulkReportArea');
+    setTimeout(() => {
+      area.classList.add('no-print');
+      area.style.left = '-10000px';
+      area.innerHTML = '';
+    }, 1500);
+    msg.innerHTML = `<div class="success">Sent ${reports.length} reports to the printer, one report per page.</div>`;
+  } catch (err) {
+    area.innerHTML = '';
+    msg.innerHTML = `<div class="error">${err.message}</div>`;
   }
 }
 
@@ -1085,13 +1311,20 @@ function printArea(id) {
   window.print();
 }
 
-function downloadArea(id, filename) {
+function downloadArea(id, filename, orientation) {
   const el = document.getElementById(id);
-  html2pdf().from(el).set({
+  return pdfFromElement(el, filename, orientation || 'landscape');
+}
+
+// Shared PDF builder. Any element carrying .report-sheet / .timetable-sheet
+// starts on a fresh page, so bulk files come out as individual sheets.
+function pdfFromElement(el, filename, orientation) {
+  return html2pdf().from(el).set({
     margin: 10,
     filename: filename,
-    html2canvas: { scale: 2 },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: orientation || 'landscape' },
+    pagebreak: { mode: ['css', 'legacy'], after: ['.report-sheet', '.timetable-sheet'] }
   }).save();
 }
 
@@ -1254,41 +1487,84 @@ async function loadClassTimetable() {
   const selectedOption = select.options[select.selectedIndex];
   const grade = Number(selectedOption.dataset.grade);
   const cls = currentClasses.find(c => c.id == classId);
-  const isJunior = grade >= 7;
-  const lessonDuration = isJunior ? 40 : 35;
 
+  try {
+    document.getElementById('classTimetableSchoolHeader').textContent = (schoolName || '').toUpperCase();
+    document.getElementById('classTimetableTitle').textContent = `${cls.stream_name} (Grade ${cls.grade}) - Timetable`;
+    container.innerHTML = await buildClassTimetableTable(classId, grade);
+    msg.innerHTML = '';
+  } catch (err) {
+    msg.innerHTML = `<div class="error">${err.message}</div>`;
+  }
+}
+
+// Shared builder so a single class view and the bulk downloads render identically.
+async function buildClassTimetableTable(classId, grade) {
+  const isJunior = Number(grade) >= 7;
+  const lessonDuration = isJunior ? 40 : 35;
   if (!currentSchoolSettings) await loadSchoolSettings();
   const schedule = computeSchedule(currentSchoolSettings.day_start_time, lessonDuration, currentSchoolSettings.lessons_per_day, currentSchoolSettings, isJunior);
 
+  const entries = await api(`/api/timetable/${classId}`);
+  const entryMap = {};
+  entries.forEach(e => { entryMap[`${e.day_of_week}-${e.period_number}`] = e; });
+
+  let html = '<table><thead><tr><th>Time</th>';
+  TIMETABLE_DAYS.forEach(d => { html += `<th>${d}</th>`; });
+  html += '</tr></thead><tbody>';
+  schedule.forEach(row => {
+    const timeLabel = `${formatMinutes(row.start)} - ${formatMinutes(row.end)}`;
+    if (row.type === 'lesson') {
+      html += `<tr><td>${timeLabel}</td>`;
+      TIMETABLE_DAYS.forEach(d => {
+        const e = entryMap[`${d}-${row.period}`];
+        const label = e ? `${e.subject_name || '?'}<br><small>${e.teacher_name || ''}</small>` : '-';
+        html += `<td style="text-align:center;">${label}</td>`;
+      });
+      html += '</tr>';
+    } else {
+      html += `<tr style="background:#f0f0f0;"><td>${timeLabel}</td><td colspan="5" style="text-align:center;font-weight:bold;">${row.label}</td></tr>`;
+    }
+  });
+  html += '</tbody></table>';
+  return html;
+}
+
+// band = 'primary' (Grade 1-6) or 'junior' (Grade 7-9). Each section downloads separately.
+async function downloadTimetablesByBand(band) {
+  const msg = document.getElementById('bulkTimetableMsg');
+  const area = document.getElementById('bulkTimetableArea');
+  const isJunior = band === 'junior';
+  const label = isJunior ? 'Junior Secondary (Grade 7-9)' : 'Primary (Grade 1-6)';
+  const classes = currentClasses
+    .filter(c => (isJunior ? Number(c.grade) >= 7 : Number(c.grade) <= 6))
+    .sort((a, b) => Number(a.grade) - Number(b.grade) || a.stream_name.localeCompare(b.stream_name));
+
+  if (!classes.length) {
+    msg.innerHTML = `<div class="error">No ${label} classes have been added yet.</div>`;
+    return;
+  }
+
   try {
-    const entries = await api(`/api/timetable/${classId}`);
-    const entryMap = {};
-    entries.forEach(e => { entryMap[`${e.day_of_week}-${e.period_number}`] = e; });
-
-    document.getElementById('classTimetableSchoolHeader').textContent = (schoolName || '').toUpperCase();
-    document.getElementById('classTimetableTitle').textContent = `${cls.stream_name} (Grade ${cls.grade}) - Timetable`;
-
-    let html = '<table><thead><tr><th>Time</th>';
-    TIMETABLE_DAYS.forEach(d => { html += `<th>${d}</th>`; });
-    html += '</tr></thead><tbody>';
-    schedule.forEach(row => {
-      const timeLabel = `${formatMinutes(row.start)} - ${formatMinutes(row.end)}`;
-      if (row.type === 'lesson') {
-        html += `<tr><td>${timeLabel}</td>`;
-        TIMETABLE_DAYS.forEach(d => {
-          const e = entryMap[`${d}-${row.period}`];
-          const label = e ? `${e.subject_name || '?'}<br><small>${e.teacher_name || ''}</small>` : '-';
-          html += `<td style="text-align:center;">${label}</td>`;
-        });
-        html += '</tr>';
-      } else {
-        html += `<tr style="background:#f0f0f0;"><td>${timeLabel}</td><td colspan="5" style="text-align:center;font-weight:bold;">${row.label}</td></tr>`;
-      }
-    });
-    html += '</tbody></table>';
-    container.innerHTML = html;
-    msg.innerHTML = '';
+    let html = '';
+    for (let i = 0; i < classes.length; i++) {
+      const c = classes[i];
+      msg.innerHTML = `Building timetable ${i + 1} of ${classes.length} (${c.stream_name})...`;
+      const table = await buildClassTimetableTable(c.id, c.grade);
+      html += `<div class="timetable-sheet">
+        <h2 style="text-align:center;">${escapeHtml((schoolName || '').toUpperCase())}</h2>
+        <h3 style="text-align:center;">${escapeHtml(label)} Timetable</h3>
+        <h3 style="text-align:center;">${escapeHtml(c.stream_name)} (Grade ${c.grade})</h3>
+        ${table}
+      </div>`;
+    }
+    area.innerHTML = html;
+    msg.innerHTML = 'Creating PDF...';
+    await pdfFromElement(area, `${isJunior ? 'junior_secondary' : 'primary'}_timetables.pdf`, 'landscape');
+    area.innerHTML = '';
+    msg.innerHTML = `<div class="success">Downloaded ${classes.length} ${label} timetable(s), one class per page.</div>`;
   } catch (err) {
+    area.innerHTML = '';
     msg.innerHTML = `<div class="error">${err.message}</div>`;
   }
 }
