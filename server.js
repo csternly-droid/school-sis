@@ -447,6 +447,13 @@ app.get('/api/analysis/class/:classId/:examSessionId', requireRole('admin'), wra
   );
   const marks = marksRes.rows;
 
+  const bandsRes = await pool.query('SELECT * FROM grading_bands WHERE school_id=$1', [req.user.school_id]);
+  const bands = bandsRes.rows;
+  function bandFor(score) {
+    if (score === null || score === undefined) return null;
+    return bands.find(b => score >= b.min_score && score <= b.max_score) || null;
+  }
+
   const marksByLearner = {};
   marks.forEach(m => {
     marksByLearner[m.learner_id] = marksByLearner[m.learner_id] || {};
@@ -454,13 +461,16 @@ app.get('/api/analysis/class/:classId/:examSessionId', requireRole('admin'), wra
   });
 
   const learnerRanking = learners.map(l => {
-    const subjectScores = subjects.map(s => ({
-      subject: s.name,
-      score: marksByLearner[l.id] && marksByLearner[l.id][s.id] !== undefined ? marksByLearner[l.id][s.id] : null
-    }));
-    const recorded = subjectScores.filter(s => s.score !== null).map(s => s.score);
-    const mean = recorded.length ? recorded.reduce((a, b) => a + b, 0) / recorded.length : 0;
-    return { learner: l, mean, subjects: subjectScores };
+    const subjectScores = subjects.map(s => {
+      const score = marksByLearner[l.id] && marksByLearner[l.id][s.id] !== undefined ? marksByLearner[l.id][s.id] : null;
+      const band = bandFor(score);
+      return { subject: s.name, score, level: band ? band.grade_letter : null, points: band ? Number(band.points) : 0 };
+    });
+    const recorded = subjectScores.filter(s => s.score !== null);
+    const mean = recorded.length ? recorded.reduce((a, b) => a + b.score, 0) / recorded.length : 0;
+    const totalPoints = recorded.reduce((a, b) => a + b.points, 0);
+    const overallBand = bandFor(mean);
+    return { learner: l, mean, subjects: subjectScores, totalPoints, overallLevel: overallBand ? overallBand.grade_letter : null };
   }).sort((a, b) => b.mean - a.mean)
     .map((r, i) => ({ position: i + 1, ...r }));
 
@@ -469,7 +479,8 @@ app.get('/api/analysis/class/:classId/:examSessionId', requireRole('admin'), wra
       .map(l => (marksByLearner[l.id] ? marksByLearner[l.id][s.id] : undefined))
       .filter(v => v !== undefined);
     const mean = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
-    return { subject: s.name, mean, entries: scores.length };
+    const band = bandFor(mean);
+    return { subject: s.name, mean, entries: scores.length, level: band ? band.grade_letter : null };
   }).sort((a, b) => b.mean - a.mean);
 
   const prevRes = await pool.query(
@@ -529,10 +540,14 @@ app.get('/api/report/:learnerId/:examSessionId', requireRole('admin'), wrap(asyn
     WHERE m.exam_session_id=$1 AND m.learner_id=$2
   `, [examSessionId, learnerId]);
 
-  const withGrades = [];
+const withGrades = [];
   for (const m of marksRes.rows) {
     withGrades.push({ ...m, band: await scoreToBand(req.user.school_id, m.score) });
   }
+
+  const totalPoints = withGrades.reduce((sum, m) => sum + (m.band ? Number(m.band.points) : 0), 0);
+  const meanScore = withGrades.length ? withGrades.reduce((s, m) => s + Number(m.score), 0) / withGrades.length : 0;
+  const overallBand = await scoreToBand(req.user.school_id, meanScore);
 
   const classmatesRes = await pool.query('SELECT id FROM learners WHERE class_id=$1', [learner.class_id]);
   const totals = [];
@@ -552,26 +567,27 @@ app.get('/api/report/:learnerId/:examSessionId', requireRole('admin'), wrap(asyn
 
   const remarkRes = await pool.query('SELECT * FROM report_remarks WHERE learner_id=$1 AND exam_session_id=$2', [learnerId, examSessionId]);
 
-  res.json({
+res.json({
     learner,
     marks: withGrades,
     position,
     totalInClass: classmatesRes.rows.length,
     history: historyRes.rows,
-    remark: remarkRes.rows[0] || {}
+    remark: remarkRes.rows[0] || {},
+    totalPoints,
+    meanScore,
+    overallBand
   });
 }));
-
 app.post('/api/report/:learnerId/:examSessionId/remarks', requireRole('admin'), wrap(async (req, res) => {
   const { learnerId, examSessionId } = req.params;
-  const { class_teacher_remark, head_teacher_remark } = req.body;
+  const { class_teacher_remark, head_teacher_remark, parent_remark, term_open_date, term_close_date } = req.body;
   await pool.query(`
-    INSERT INTO report_remarks (school_id, learner_id, exam_session_id, class_teacher_remark, head_teacher_remark)
-    VALUES ($1,$2,$3,$4,$5)
-  `, [req.user.school_id, learnerId, examSessionId, class_teacher_remark, head_teacher_remark]);
+    INSERT INTO report_remarks (school_id, learner_id, exam_session_id, class_teacher_remark, head_teacher_remark, parent_remark, term_open_date, term_close_date)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+  `, [req.user.school_id, learnerId, examSessionId, class_teacher_remark, head_teacher_remark, parent_remark, term_open_date, term_close_date]);
   res.json({ ok: true });
 }));
-
 app.get('/api/school', requireRole('admin'), wrap(async (req, res) => {
   const { rows } = await pool.query('SELECT * FROM schools WHERE id=$1', [req.user.school_id]);
   res.json(rows[0]);
