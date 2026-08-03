@@ -340,6 +340,14 @@ app.get('/api/marksheet/:classId/:examSessionId', requireRole('admin', 'teacher'
     `SELECT * FROM marks WHERE school_id=$1 AND exam_session_id=$2 AND learner_id IN (SELECT id FROM learners WHERE class_id=$3)`,
     [req.user.school_id, examSessionId, classId]
   );
+  const bandsRes = await pool.query('SELECT * FROM grading_bands WHERE school_id=$1', [req.user.school_id]);
+  const bands = bandsRes.rows;
+
+  function findLevel(score) {
+    if (score === null || score === undefined) return null;
+    const band = bands.find(b => score >= b.min_score && score <= b.max_score);
+    return band ? band.grade_letter : null;
+  }
 
   const marksByLearner = {};
   for (const m of marksRes.rows) {
@@ -352,7 +360,8 @@ app.get('/api/marksheet/:classId/:examSessionId', requireRole('admin', 'teacher'
     subjects: subjectsRes.rows,
     rows: learnersRes.rows.map(l => ({
       learner: l,
-      scores: subjectsRes.rows.map(s => marksByLearner[l.id]?.[s.id] ?? null)
+      scores: subjectsRes.rows.map(s => marksByLearner[l.id]?.[s.id] ?? null),
+      levels: subjectsRes.rows.map(s => findLevel(marksByLearner[l.id]?.[s.id] ?? null))
     }))
   });
 }));

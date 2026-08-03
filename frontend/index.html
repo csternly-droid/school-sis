@@ -863,11 +863,13 @@ async function loadMarksheet() {
     let html = '<table><thead><tr><th>Name</th><th>Admission #</th>';
     data.subjects.forEach(s => { html += `<th>${s.name}</th>`; });
     html += '</tr></thead><tbody>';
-    data.rows.forEach(row => {
+data.rows.forEach(row => {
       html += `<tr><td>${row.learner.name}</td><td>${row.learner.admission_number}</td>`;
       data.subjects.forEach((s, i) => {
         const score = row.scores[i];
-        html += `<td style="cursor:pointer;text-decoration:underline;" onclick="editMark(${row.learner.id}, ${s.id}, ${examId}, ${score === null ? "'null'" : score})">${score === null ? '-' : score}</td>`;
+        const level = row.levels ? row.levels[i] : null;
+        const display = score === null ? '-' : `${score}${level ? ' (' + level + ')' : ''}`;
+        html += `<td style="cursor:pointer;text-decoration:underline;" onclick="editMark(${row.learner.id}, ${s.id}, ${examId}, ${score === null ? "'null'" : score})">${display}</td>`;
       });
       html += '</tr>';
     });
