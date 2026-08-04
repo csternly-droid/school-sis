@@ -784,8 +784,7 @@ app.post('/api/timetable/generate', requireRole('admin'), wrap(async (req, res) 
         }
       }
     } else if (style === 'double') {
-
-    if (style === 'double') {
+      if (style === 'double') {
       const numDoubles = Math.floor(requirement.count / 2);
       const hasSingleLeftover = requirement.count % 2 === 1;
 

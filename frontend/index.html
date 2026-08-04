@@ -1249,6 +1249,7 @@ async function loadLessonsPerWeek() {
           <option value="daily" ${style === 'daily' ? 'selected' : ''}>Daily (one lesson every school day)</option>
           <option value="double" ${style === 'double' ? 'selected' : ''}>Double lesson (2 back-to-back periods)</option>
           <option value="one_double" ${style === 'one_double' ? 'selected' : ''}>One double lesson per week (rest spread normally)</option>
+          <option value="one_double" ${style === 'one_double' ? 'selected' : ''}>One double lesson per week (rest spread normally)</option>
         </select></td>
         <td><button onclick="saveLessonsPerWeek(${grade}, ${s.id})">Save</button></td></tr>`;
     });
