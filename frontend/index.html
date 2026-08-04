@@ -9,6 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SCO Admin">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
   * { box-sizing: border-box; }
   body { font-family: Arial, sans-serif; margin: 0; background: #f4f6f8; color: #222; }
@@ -40,7 +41,6 @@
     .no-print { display: none !important; }
   }
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
 
@@ -190,12 +190,12 @@
     <!-- GRADING TAB -->
     <div id="tab-grading" class="tab hidden">
       <h2>Grading System</h2>
-      <p>Set the score ranges for each grade letter, e.g. 80-100 = A. This applies to individual learner reports.</p>
+      <p>Set the score ranges for each grade letter / performance level, e.g. 80-100 = EE. This applies to mark sheets, analysis, and reports.</p>
       <form id="gradingForm" class="row">
         <input type="number" id="gradeMin" placeholder="Min score" required>
         <input type="number" id="gradeMax" placeholder="Max score" required>
-        <input type="text" id="gradeLetter" placeholder="Letter (e.g. A)" required>
-        <input type="number" id="gradePoints" placeholder="Points (e.g. 12)" step="0.1" required>
+        <input type="text" id="gradeLetter" placeholder="Letter (e.g. EE)" required>
+        <input type="number" id="gradePoints" placeholder="Points (e.g. 4)" step="0.1" required>
         <button type="submit">Add</button>
       </form>
       <div id="gradingMsg"></div>
@@ -225,55 +225,42 @@
 
     <!-- ANALYSIS TAB -->
     <div id="tab-analysis" class="tab hidden">
-  const container = document.getElementById('learnerRankContainer');
-    if (data.learnerRanking.length) {
-      const subjectNames = data.learnerRanking[0].subjects.map(s => s.subject);
-      let html = '<table><thead><tr><th>Position</th><th>Name</th>';
-      subjectNames.forEach(name => { html += `<th>${name}</th>`; });
-      html += '<th>Average</th><th>Total Points</th><th>Overall Grade</th></tr></thead><tbody>';
-      data.learnerRanking.forEach(r => {
-        html += `<tr><td>${r.position}</td><td>${r.learner.name}</td>`;
-        r.subjects.forEach(s => {
-          const display = s.score === null ? '-' : `${s.score}${s.level ? ' (' + s.level + ')' : ''}`;
-          html += `<td>${display}</td>`;
-        });
-        html += `<td>${r.mean.toFixed(1)}</td><td>${r.totalPoints}</td><td>${r.overallLevel || '-'}</td></tr>`;
-      });
-      html += '</tbody></table>';
-      container.innerHTML = html;
-    } else {
-      container.innerHTML = '<p>No learners found in this class.</p>';
-    }
+      <h2>Results Analysis</h2>
+      <div class="row">
+        <select id="analysisClassSelect"></select>
+        <select id="analysisExamSelect"></select>
+        <button onclick="loadAnalysis()">Run Analysis</button>
+        <button onclick="downloadArea('analysisPrintArea', 'analysis.pdf')">Download Analysis (PDF)</button>
+      </div>
+      <div id="analysisMsg"></div>
+      <div id="analysisPrintArea">
+        <h2 id="analysisSchoolHeader" style="text-align:center;"></h2>
+        <div id="classTrendBox"></div>
+        <h3>Learner Ranking (best to worst), with each subject shown</h3>
+        <div id="learnerRankContainer" style="overflow-x:auto;"></div>
+        <h3>Most Improved Learners (vs previous exam)</h3>
+        <table id="improvedTable">
+          <thead><tr><th>Position</th><th>Name</th><th>Previous Average</th><th>Current Average</th><th>Change</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <h3>Subject Ranking (best to worst, by mean)</h3>
+        <table id="subjectRankTable">
+          <thead><tr><th>Subject</th><th>Average Score</th><th>Performance Level</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
 
     <!-- REPORT TAB -->
     <div id="tab-report" class="tab hidden">
       <h2>Individual Learner Report</h2>
-      <div class="row no-print"><h2 id="analysisSchoolHeader" style="text-align:center;"></h2>
-const container = document.getElementById('learnerRankContainer');
-    if (data.learnerRanking.length) {
-      const subjectNames = data.learnerRanking[0].subjects.map(s => s.subject);
-      let html = '<table><thead><tr><th>Position</th><th>Name</th>';
-      subjectNames.forEach(name => { html += `<th>${name}</th>`; });
-      html += '<th>Average</th><th>Total Points</th><th>Overall Grade</th></tr></thead><tbody>';
-      data.learnerRanking.forEach(r => {
-        html += `<tr><td>${r.position}</td><td>${r.learner.name}</td>`;
-        r.subjects.forEach(s => {
-          const display = s.score === null ? '-' : `${s.score}${s.level ? ' (' + s.level + ')' : ''}`;
-          html += `<td>${display}</td>`;
-        });
-        html += `<td>${r.mean.toFixed(1)}</td><td>${r.totalPoints}</td><td>${r.overallLevel || '-'}</td></tr>`;
-      });
-      html += '</tbody></table>';
-      container.innerHTML = html;
-    } else {
-      container.innerHTML = '<p>No learners found in this class.</p>';
-    }
+      <div class="row no-print">
         <select id="reportClassSelect"></select>
         <select id="reportLearnerSelect"></select>
         <select id="reportExamSelect"></select>
         <button onclick="loadReport()">Generate Report</button>
       </div>
-<div class="row no-print">
+      <div class="row no-print">
         <button onclick="downloadAllClassReports()">Download All Reports for This Class (PDF)</button>
       </div>
       <div id="reportMsg" class="no-print"></div>
@@ -339,7 +326,7 @@ const container = document.getElementById('learnerRankContainer');
         <input type="number" id="settingBreak2After" min="1" value="5">
         <label>Break 2 duration (minutes)</label>
         <input type="number" id="settingBreak2Duration" min="1" value="15">
-  <label>Lessons after lunch - Primary (Grade 1-6)</label>
+        <label>Lessons after lunch - Primary (Grade 1-6)</label>
         <input type="number" id="settingLessonsAfterLunchPrimary" min="0" value="4">
         <label>Lessons after lunch - Junior Secondary (Grade 7-9)</label>
         <input type="number" id="settingLessonsAfterLunchJunior" min="0" value="3">
@@ -376,11 +363,8 @@ const container = document.getElementById('learnerRankContainer');
       <h3>4. Class Timetable</h3>
       <select id="timetableClassSelect"></select>
       <button onclick="loadClassTimetable()">View Class Timetable</button>
- <button onclick="printArea('classTimetablePrintArea')">Print Class Timetable</button>
+      <button onclick="printArea('classTimetablePrintArea')">Print Class Timetable</button>
       <button onclick="downloadArea('classTimetablePrintArea', 'class_timetable.pdf')">Download Class Timetable (PDF)</button>
-      <button onclick="downloadBandTimetable(false)">Download Primary Timetable (All Classes)</button>
-      <button onclick="downloadBandTimetable(true)">Download Junior Secondary Timetable (All Classes)</button>
-      <div id="bandTimetableContainer" style="display:none;"></div>
       <button onclick="downloadBandTimetable(false)">Download Primary Timetable (All Classes)</button>
       <button onclick="downloadBandTimetable(true)">Download Junior Secondary Timetable (All Classes)</button>
       <div id="bandTimetableContainer" style="display:none;"></div>
@@ -491,7 +475,7 @@ function showDashboard() {
   loadSchoolInfo();
   loadSchoolSettings();
   loadLessonsPerWeek();
- if (sessionCheckInterval) clearInterval(sessionCheckInterval);
+  if (sessionCheckInterval) clearInterval(sessionCheckInterval);
   sessionCheckInterval = setInterval(() => { api('/api/session-check').catch(() => {}); }, 20000);
   resetInactivityTimer();
 }
@@ -534,59 +518,6 @@ async function loadClasses() {
   }
 }
 
-async function downloadBandTimetable(isJunior) {
-  const msg = document.getElementById('timetableMsg');
-  const bandClasses = currentClasses.filter(c => isJunior ? c.grade >= 7 : c.grade <= 6);
-  if (!bandClasses.length) { msg.innerHTML = '<div class="error">No classes found for that section.</div>'; return; }
-  if (!currentSchoolSettings) await loadSchoolSettings();
-  const lessonDuration = isJunior ? 40 : 35;
-  const schedule = computeSchedule(currentSchoolSettings.day_start_time, lessonDuration, currentSchoolSettings.lessons_per_day, currentSchoolSettings, isJunior);
-
-  let combinedHtml = '';
-  for (const cls of bandClasses) {
-    try {
-      const entries = await api(`/api/timetable/${cls.id}`);
-      const entryMap = {};
-      entries.forEach(e => { entryMap[`${e.day_of_week}-${e.period_number}`] = e; });
-      let html = `<div style="page-break-after:always; padding:16px;">
-        <h2 style="text-align:center;">${(schoolName || '').toUpperCase()}</h2>
-        <h3 style="text-align:center;">${cls.stream_name} (Grade ${cls.grade}) - Timetable</h3>
-        <table style="width:100%; border-collapse:collapse;"><thead><tr><th style="border-bottom:1px solid #ccc;text-align:left;">Time</th>`;
-      TIMETABLE_DAYS.forEach(d => { html += `<th style="border-bottom:1px solid #ccc;">${d}</th>`; });
-      html += '</tr></thead><tbody>';
-      schedule.forEach(row => {
-        const timeLabel = `${formatMinutes(row.start)} - ${formatMinutes(row.end)}`;
-        if (row.type === 'lesson') {
-          html += `<tr><td>${timeLabel}</td>`;
-          TIMETABLE_DAYS.forEach(d => {
-            const e = entryMap[`${d}-${row.period}`];
-            const label = e ? `${e.subject_name || '?'}<br><small>${e.teacher_name || ''}</small>` : '-';
-            html += `<td style="text-align:center;">${label}</td>`;
-          });
-          html += '</tr>';
-        } else {
-          html += `<tr style="background:#f0f0f0;"><td>${timeLabel}</td><td colspan="5" style="text-align:center;font-weight:bold;">${row.label}</td></tr>`;
-        }
-      });
-      html += '</tbody></table></div>';
-      combinedHtml += html;
-    } catch (err) {
-      // skip this class and continue with the rest
-    }
-  }
-
-  const container = document.getElementById('bandTimetableContainer');
-  container.innerHTML = combinedHtml;
-  html2pdf().from(container).set({
-    margin: 10,
-    filename: (isJunior ? 'junior_secondary' : 'primary') + '_timetable.pdf',
-    html2canvas: { scale: 2 },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
-  }).save();
-  msg.innerHTML = '<div class="success">Downloaded.</div>';
-}
-
-function editTimetableCell(classId, day, period) {
 function editClass(id) {
   const c = currentClasses.find(x => x.id === id);
   if (!c) return;
@@ -956,7 +887,7 @@ async function loadMarksheet() {
     let html = '<table><thead><tr><th>Name</th><th>Admission #</th>';
     data.subjects.forEach(s => { html += `<th>${s.name}</th>`; });
     html += '</tr></thead><tbody>';
-data.rows.forEach(row => {
+    data.rows.forEach(row => {
       html += `<tr><td>${row.learner.name}</td><td>${row.learner.admission_number}</td>`;
       data.subjects.forEach((s, i) => {
         const score = row.scores[i];
@@ -1001,7 +932,6 @@ async function loadAnalysis() {
   try {
     const data = await api(`/api/analysis/class/${classId}/${examId}`);
 
-    // Class trend banner
     const trendBox = document.getElementById('classTrendBox');
     if (data.classTrend) {
       const t = data.classTrend;
@@ -1015,10 +945,26 @@ async function loadAnalysis() {
       trendBox.innerHTML = `<p style="color:#555;">No previous exam session found for this class yet, so no trend to compare.</p>`;
     }
 
-    // Learner ranking with subject breakdown
+    const container = document.getElementById('learnerRankContainer');
+    if (data.learnerRanking.length) {
+      const subjectNames = data.learnerRanking[0].subjects.map(s => s.subject);
+      let html = '<table><thead><tr><th>Position</th><th>Name</th>';
+      subjectNames.forEach(name => { html += `<th>${name}</th>`; });
+      html += '<th>Average</th><th>Total Points</th><th>Overall Grade</th></tr></thead><tbody>';
+      data.learnerRanking.forEach(r => {
+        html += `<tr><td>${r.position}</td><td>${r.learner.name}</td>`;
+        r.subjects.forEach(s => {
+          const display = s.score === null ? '-' : `${s.score}${s.level ? ' (' + s.level + ')' : ''}`;
+          html += `<td>${display}</td>`;
+        });
+        html += `<td>${r.mean.toFixed(1)}</td><td>${r.totalPoints}</td><td>${r.overallLevel || '-'}</td></tr>`;
+      });
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    } else {
+      container.innerHTML = '<p>No learners found in this class.</p>';
+    }
 
-
-    // Most improved
     const improvedBody = document.querySelector('#improvedTable tbody');
     improvedBody.innerHTML = '';
     data.mostImproved.forEach((r, i) => {
@@ -1030,8 +976,7 @@ async function loadAnalysis() {
       improvedBody.innerHTML = '<tr><td colspan="5">No previous exam session to compare against yet.</td></tr>';
     }
 
-    // Subject ranking
-const subjectBody = document.querySelector('#subjectRankTable tbody');
+    const subjectBody = document.querySelector('#subjectRankTable tbody');
     subjectBody.innerHTML = '';
     data.subjectRanking.forEach(s => {
       subjectBody.innerHTML += `<tr><td>${s.subject}</td><td>${s.mean.toFixed(1)}</td><td>${s.level || '-'}</td></tr>`;
@@ -1122,7 +1067,7 @@ async function loadReport() {
       subjBody.innerHTML += `<tr><td>${m.subject_name}</td><td>${m.score}</td><td>${gradeLabel}</td></tr>`;
     });
 
-document.getElementById('reportPosition').textContent =
+    document.getElementById('reportPosition').textContent =
       `Class Position: ${data.position} out of ${data.totalInClass}`;
     const overallLabel = data.overallBand ? data.overallBand.grade_letter : '-';
     document.getElementById('reportTotalPoints').textContent =
@@ -1246,7 +1191,7 @@ async function loadSchoolSettings() {
     document.getElementById('settingBreak1Duration').value = s.break1_duration;
     document.getElementById('settingBreak2After').value = s.break2_after_period;
     document.getElementById('settingBreak2Duration').value = s.break2_duration;
-  document.getElementById('settingLessonsAfterLunchPrimary').value = Math.max(0, s.lessons_per_day - s.lunch_after_period_primary);
+    document.getElementById('settingLessonsAfterLunchPrimary').value = Math.max(0, s.lessons_per_day - s.lunch_after_period_primary);
     document.getElementById('settingLessonsAfterLunchJunior').value = Math.max(0, s.lessons_per_day - s.lunch_after_period_junior);
     document.getElementById('settingLunchDuration').value = s.lunch_duration;
   } catch (err) {
@@ -1288,7 +1233,7 @@ async function loadLessonsPerWeek() {
   const msg = document.getElementById('lpwMsg');
   try {
     const subjects = currentSubjects.filter(s => String(s.grade) === String(grade));
-  const existing = await api(`/api/subject-lessons?grade=${grade}`);
+    const existing = await api(`/api/subject-lessons?grade=${grade}`);
     const existingMap = {};
     existing.forEach(e => { existingMap[e.subject_id] = e; });
     const tbody = document.querySelector('#lpwTable tbody');
@@ -1427,6 +1372,81 @@ async function loadClassTimetable() {
   }
 }
 
+// ---- Bulk timetable download by grade band ----
+async function downloadBandTimetable(isJunior) {
+  const msg = document.getElementById('timetableMsg');
+  const bandClasses = currentClasses.filter(c => isJunior ? c.grade >= 7 : c.grade <= 6);
+  if (!bandClasses.length) { msg.innerHTML = '<div class="error">No classes found for that section.</div>'; return; }
+  if (!currentSchoolSettings) await loadSchoolSettings();
+  const lessonDuration = isJunior ? 40 : 35;
+  const schedule = computeSchedule(currentSchoolSettings.day_start_time, lessonDuration, currentSchoolSettings.lessons_per_day, currentSchoolSettings, isJunior);
+
+  let combinedHtml = '';
+  for (const cls of bandClasses) {
+    try {
+      const entries = await api(`/api/timetable/${cls.id}`);
+      const entryMap = {};
+      entries.forEach(e => { entryMap[`${e.day_of_week}-${e.period_number}`] = e; });
+      let html = `<div style="page-break-after:always; padding:16px;">
+        <h2 style="text-align:center;">${(schoolName || '').toUpperCase()}</h2>
+        <h3 style="text-align:center;">${cls.stream_name} (Grade ${cls.grade}) - Timetable</h3>
+        <table style="width:100%; border-collapse:collapse;"><thead><tr><th style="border-bottom:1px solid #ccc;text-align:left;">Time</th>`;
+      TIMETABLE_DAYS.forEach(d => { html += `<th style="border-bottom:1px solid #ccc;">${d}</th>`; });
+      html += '</tr></thead><tbody>';
+      schedule.forEach(row => {
+        const timeLabel = `${formatMinutes(row.start)} - ${formatMinutes(row.end)}`;
+        if (row.type === 'lesson') {
+          html += `<tr><td>${timeLabel}</td>`;
+          TIMETABLE_DAYS.forEach(d => {
+            const e = entryMap[`${d}-${row.period}`];
+            const label = e ? `${e.subject_name || '?'}<br><small>${e.teacher_name || ''}</small>` : '-';
+            html += `<td style="text-align:center;">${label}</td>`;
+          });
+          html += '</tr>';
+        } else {
+          html += `<tr style="background:#f0f0f0;"><td>${timeLabel}</td><td colspan="5" style="text-align:center;font-weight:bold;">${row.label}</td></tr>`;
+        }
+      });
+      html += '</tbody></table></div>';
+      combinedHtml += html;
+    } catch (err) {
+      // skip this class and continue with the rest
+    }
+  }
+
+  const container = document.getElementById('bandTimetableContainer');
+  container.innerHTML = combinedHtml;
+  html2pdf().from(container).set({
+    margin: 10,
+    filename: (isJunior ? 'junior_secondary' : 'primary') + '_timetable.pdf',
+    html2canvas: { scale: 2 },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+  }).save();
+  msg.innerHTML = '<div class="success">Downloaded.</div>';
+}
+
+function editTimetableCell(classId, day, period) {
+  if (!currentTimetableSubjects.length) { alert('Add subjects for this grade first, under the Subjects tab.'); return; }
+  const subjectList = currentTimetableSubjects.map((s, i) => `${i + 1}. ${s.name}`).join('\n');
+  const subjIdx = prompt(`Choose subject number for ${day} period ${period}:\n${subjectList}`);
+  if (subjIdx === null) return;
+  const subject = currentTimetableSubjects[Number(subjIdx) - 1];
+  if (!subject) { alert('Invalid subject number.'); return; }
+
+  if (!currentTeachers.length) { alert('Add teachers first, under the Teachers tab.'); return; }
+  const teacherList = currentTeachers.map((t, i) => `${i + 1}. ${t.full_name} (${t.serial_number})`).join('\n');
+  const teachIdx = prompt(`Choose teacher number:\n${teacherList}`);
+  if (teachIdx === null) return;
+  const teacher = currentTeachers[Number(teachIdx) - 1];
+  if (!teacher) { alert('Invalid teacher number.'); return; }
+
+  api('/api/timetable', {
+    method: 'POST',
+    body: JSON.stringify({ class_id: classId, day_of_week: day, period_number: period, subject_id: subject.id, teacher_id: teacher.id })
+  }).then(loadClassTimetable).catch(err => alert(err.message));
+}
+let currentTimetableSubjects = [];
+
 // ---- Individual teacher timetable ----
 function populateTimetableTeacherSelect() {
   const select = document.getElementById('timetableTeacherSelect');
@@ -1448,13 +1468,9 @@ async function loadTeacherTimetable() {
     document.getElementById('teacherTimetableSchoolHeader').textContent = (schoolName || '').toUpperCase();
     document.getElementById('teacherTimetableTitle').textContent = `${teacher.full_name} - Individual Timetable`;
 
-    // Build a lookup keyed by day-period, and figure out both lesson lengths since
-    // a teacher may teach both primary and junior secondary classes.
     const entryMap = {};
     entries.forEach(e => { entryMap[`${e.day_of_week}-${e.period_number}`] = e; });
 
-    // Use junior secondary schedule as the display grid if the teacher teaches any JS class,
-    // otherwise primary - this only affects displayed times, not the underlying period numbers.
     const teachesJunior = entries.some(e => e.grade >= 7);
     const lessonDuration = teachesJunior ? 40 : 35;
     const schedule = computeSchedule(currentSchoolSettings.day_start_time, lessonDuration, currentSchoolSettings.lessons_per_day, currentSchoolSettings, teachesJunior);
