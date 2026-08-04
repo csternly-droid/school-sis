@@ -748,6 +748,42 @@ app.post('/api/timetable/generate', requireRole('admin'), wrap(async (req, res) 
     const style = requirement.schedule_style;
     let placedCount = 0;
     const usedDays = new Set();
+    if (style === 'one_double') {
+      if (requirement.count >= 2) {
+        let doublePlaced = false;
+        const shuffledDaysForDouble = shuffle(days);
+        for (const day of shuffledDaysForDouble) {
+          if (doublePlaced) break;
+          const shuffledStarts = shuffle(Array.from({ length: lessonsPerDay - 1 }, (_, i) => i + 1));
+          for (const startPeriod of shuffledStarts) {
+            const p1 = startPeriod, p2 = startPeriod + 1;
+            const cKey1 = `${requirement.class_id}-${day}-${p1}`, cKey2 = `${requirement.class_id}-${day}-${p2}`;
+            const tKey1 = `${requirement.teacher_id}-${day}-${p1}`, tKey2 = `${requirement.teacher_id}-${day}-${p2}`;
+            if (classBusy[cKey1] || classBusy[cKey2] || teacherBusy[tKey1] || teacherBusy[tKey2]) continue;
+            place(requirement.class_id, requirement.teacher_id, requirement.subject_id, day, p1);
+            place(requirement.class_id, requirement.teacher_id, requirement.subject_id, day, p2);
+            placedCount += 2;
+            doublePlaced = true;
+            break;
+          }
+        }
+      }
+      for (let pass = 0; pass < 2 && placedCount < requirement.count; pass++) {
+        const shuffledDays = shuffle(days);
+        for (const day of shuffledDays) {
+          if (placedCount >= requirement.count) break;
+          const daySubjectKey = `${requirement.class_id}-${day}-${requirement.subject_id}`;
+          if (pass === 0 && classDaySubject[daySubjectKey]) continue;
+          const shuffledPeriods = shuffle(Array.from({ length: lessonsPerDay }, (_, i) => i + 1));
+          for (const period of shuffledPeriods) {
+            if (placedCount >= requirement.count) break;
+            if (place(requirement.class_id, requirement.teacher_id, requirement.subject_id, day, period)) {
+              placedCount++;
+            }
+          }
+        }
+      }
+    } else if (style === 'double') {
 
     if (style === 'double') {
       const numDoubles = Math.floor(requirement.count / 2);
