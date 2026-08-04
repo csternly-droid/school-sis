@@ -225,39 +225,59 @@
 
     <!-- ANALYSIS TAB -->
     <div id="tab-analysis" class="tab hidden">
-      <h2 id="analysisSchoolHeader" style="text-align:center;"></h2>
-      <h2>Results Analysis</h2>
-      <div class="row">
-        <select id="analysisClassSelect"></select>
-        <select id="analysisExamSelect"></select>
-        <button onclick="loadAnalysis()">Run Analysis</button>
-      </div>
-      <div id="analysisMsg"></div>
-      <div id="classTrendBox"></div>
-      <h3>Learner Ranking (best to worst), with each subject shown</h3>
-      <div id="learnerRankContainer" style="overflow-x:auto;"></div>
-      <h3>Most Improved Learners (vs previous exam)</h3>
-      <table id="improvedTable">
-        <thead><tr><th>Position</th><th>Name</th><th>Previous Average</th><th>Current Average</th><th>Change</th></tr></thead>
-        <tbody></tbody>
-      </table>
-      <h3>Subject Ranking (best to worst, by mean)</h3>
-      <table id="subjectRankTable">
-        <thead><tr><th>Subject</th><th>Average Score</th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
+  const container = document.getElementById('learnerRankContainer');
+    if (data.learnerRanking.length) {
+      const subjectNames = data.learnerRanking[0].subjects.map(s => s.subject);
+      let html = '<table><thead><tr><th>Position</th><th>Name</th>';
+      subjectNames.forEach(name => { html += `<th>${name}</th>`; });
+      html += '<th>Average</th><th>Total Points</th><th>Overall Grade</th></tr></thead><tbody>';
+      data.learnerRanking.forEach(r => {
+        html += `<tr><td>${r.position}</td><td>${r.learner.name}</td>`;
+        r.subjects.forEach(s => {
+          const display = s.score === null ? '-' : `${s.score}${s.level ? ' (' + s.level + ')' : ''}`;
+          html += `<td>${display}</td>`;
+        });
+        html += `<td>${r.mean.toFixed(1)}</td><td>${r.totalPoints}</td><td>${r.overallLevel || '-'}</td></tr>`;
+      });
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    } else {
+      container.innerHTML = '<p>No learners found in this class.</p>';
+    }
 
     <!-- REPORT TAB -->
     <div id="tab-report" class="tab hidden">
       <h2>Individual Learner Report</h2>
-      <div class="row no-print">
+      <div class="row no-print"><h2 id="analysisSchoolHeader" style="text-align:center;"></h2>
+const container = document.getElementById('learnerRankContainer');
+    if (data.learnerRanking.length) {
+      const subjectNames = data.learnerRanking[0].subjects.map(s => s.subject);
+      let html = '<table><thead><tr><th>Position</th><th>Name</th>';
+      subjectNames.forEach(name => { html += `<th>${name}</th>`; });
+      html += '<th>Average</th><th>Total Points</th><th>Overall Grade</th></tr></thead><tbody>';
+      data.learnerRanking.forEach(r => {
+        html += `<tr><td>${r.position}</td><td>${r.learner.name}</td>`;
+        r.subjects.forEach(s => {
+          const display = s.score === null ? '-' : `${s.score}${s.level ? ' (' + s.level + ')' : ''}`;
+          html += `<td>${display}</td>`;
+        });
+        html += `<td>${r.mean.toFixed(1)}</td><td>${r.totalPoints}</td><td>${r.overallLevel || '-'}</td></tr>`;
+      });
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    } else {
+      container.innerHTML = '<p>No learners found in this class.</p>';
+    }
         <select id="reportClassSelect"></select>
         <select id="reportLearnerSelect"></select>
         <select id="reportExamSelect"></select>
         <button onclick="loadReport()">Generate Report</button>
       </div>
+<div class="row no-print">
+        <button onclick="downloadAllClassReports()">Download All Reports for This Class (PDF)</button>
+      </div>
       <div id="reportMsg" class="no-print"></div>
+      <div id="bulkReportMsg" class="no-print"></div>
 
       <div id="reportOutput" class="printable" style="display:none; margin-top:20px; border:1px solid #ddd; padding:20px; border-radius:8px;">
         <h2 id="reportSchoolHeader" style="text-align:center;"></h2>
@@ -268,19 +288,33 @@
           <tbody></tbody>
         </table>
         <p id="reportPosition" style="font-weight:bold;"></p>
+        <p id="reportTotalPoints" style="font-weight:bold;"></p>
         <h3>Performance Over Time</h3>
         <div id="reportGraph"></div>
+        <div class="row">
+          <div style="flex:1;">
+            <label>Term Opening Date</label>
+            <input type="date" id="termOpenDate">
+          </div>
+          <div style="flex:1;">
+            <label>Term Closing Date</label>
+            <input type="date" id="termCloseDate">
+          </div>
+        </div>
         <h3>Remarks</h3>
         <label>Class Teacher's Remark</label>
         <textarea id="classTeacherRemark"></textarea>
         <label>Head Teacher's Remark</label>
         <textarea id="headTeacherRemark"></textarea>
+        <label>Parent/Guardian's Remark</label>
+        <textarea id="parentRemark"></textarea>
         <div class="no-print">
           <button onclick="saveRemarks()">Save Remarks</button>
           <button onclick="window.print()">Print Report</button>
           <button onclick="downloadArea('reportOutput', 'learner_report.pdf')">Download Report (PDF)</button>
         </div>
       </div>
+      <div id="bulkReportContainer" style="display:none;"></div>
     </div>
 
     <!-- TIMETABLE TAB -->
@@ -342,8 +376,14 @@
       <h3>4. Class Timetable</h3>
       <select id="timetableClassSelect"></select>
       <button onclick="loadClassTimetable()">View Class Timetable</button>
-      <button onclick="printArea('classTimetablePrintArea')">Print Class Timetable</button>
+ <button onclick="printArea('classTimetablePrintArea')">Print Class Timetable</button>
       <button onclick="downloadArea('classTimetablePrintArea', 'class_timetable.pdf')">Download Class Timetable (PDF)</button>
+      <button onclick="downloadBandTimetable(false)">Download Primary Timetable (All Classes)</button>
+      <button onclick="downloadBandTimetable(true)">Download Junior Secondary Timetable (All Classes)</button>
+      <div id="bandTimetableContainer" style="display:none;"></div>
+      <button onclick="downloadBandTimetable(false)">Download Primary Timetable (All Classes)</button>
+      <button onclick="downloadBandTimetable(true)">Download Junior Secondary Timetable (All Classes)</button>
+      <div id="bandTimetableContainer" style="display:none;"></div>
       <div id="timetableMsg"></div>
       <div id="classTimetablePrintArea" class="printable">
         <h2 id="classTimetableSchoolHeader" style="text-align:center;"></h2>
@@ -494,6 +534,59 @@ async function loadClasses() {
   }
 }
 
+async function downloadBandTimetable(isJunior) {
+  const msg = document.getElementById('timetableMsg');
+  const bandClasses = currentClasses.filter(c => isJunior ? c.grade >= 7 : c.grade <= 6);
+  if (!bandClasses.length) { msg.innerHTML = '<div class="error">No classes found for that section.</div>'; return; }
+  if (!currentSchoolSettings) await loadSchoolSettings();
+  const lessonDuration = isJunior ? 40 : 35;
+  const schedule = computeSchedule(currentSchoolSettings.day_start_time, lessonDuration, currentSchoolSettings.lessons_per_day, currentSchoolSettings, isJunior);
+
+  let combinedHtml = '';
+  for (const cls of bandClasses) {
+    try {
+      const entries = await api(`/api/timetable/${cls.id}`);
+      const entryMap = {};
+      entries.forEach(e => { entryMap[`${e.day_of_week}-${e.period_number}`] = e; });
+      let html = `<div style="page-break-after:always; padding:16px;">
+        <h2 style="text-align:center;">${(schoolName || '').toUpperCase()}</h2>
+        <h3 style="text-align:center;">${cls.stream_name} (Grade ${cls.grade}) - Timetable</h3>
+        <table style="width:100%; border-collapse:collapse;"><thead><tr><th style="border-bottom:1px solid #ccc;text-align:left;">Time</th>`;
+      TIMETABLE_DAYS.forEach(d => { html += `<th style="border-bottom:1px solid #ccc;">${d}</th>`; });
+      html += '</tr></thead><tbody>';
+      schedule.forEach(row => {
+        const timeLabel = `${formatMinutes(row.start)} - ${formatMinutes(row.end)}`;
+        if (row.type === 'lesson') {
+          html += `<tr><td>${timeLabel}</td>`;
+          TIMETABLE_DAYS.forEach(d => {
+            const e = entryMap[`${d}-${row.period}`];
+            const label = e ? `${e.subject_name || '?'}<br><small>${e.teacher_name || ''}</small>` : '-';
+            html += `<td style="text-align:center;">${label}</td>`;
+          });
+          html += '</tr>';
+        } else {
+          html += `<tr style="background:#f0f0f0;"><td>${timeLabel}</td><td colspan="5" style="text-align:center;font-weight:bold;">${row.label}</td></tr>`;
+        }
+      });
+      html += '</tbody></table></div>';
+      combinedHtml += html;
+    } catch (err) {
+      // skip this class and continue with the rest
+    }
+  }
+
+  const container = document.getElementById('bandTimetableContainer');
+  container.innerHTML = combinedHtml;
+  html2pdf().from(container).set({
+    margin: 10,
+    filename: (isJunior ? 'junior_secondary' : 'primary') + '_timetable.pdf',
+    html2canvas: { scale: 2 },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+  }).save();
+  msg.innerHTML = '<div class="success">Downloaded.</div>';
+}
+
+function editTimetableCell(classId, day, period) {
 function editClass(id) {
   const c = currentClasses.find(x => x.id === id);
   if (!c) return;
@@ -923,22 +1016,7 @@ async function loadAnalysis() {
     }
 
     // Learner ranking with subject breakdown
-    const container = document.getElementById('learnerRankContainer');
-    if (data.learnerRanking.length) {
-      const subjectNames = data.learnerRanking[0].subjects.map(s => s.subject);
-      let html = '<table><thead><tr><th>Position</th><th>Name</th>';
-      subjectNames.forEach(name => { html += `<th>${name}</th>`; });
-      html += '<th>Average</th></tr></thead><tbody>';
-      data.learnerRanking.forEach(r => {
-        html += `<tr><td>${r.position}</td><td>${r.learner.name}</td>`;
-        r.subjects.forEach(s => { html += `<td>${s.score === null ? '-' : s.score}</td>`; });
-        html += `<td>${r.mean.toFixed(1)}</td></tr>`;
-      });
-      html += '</tbody></table>';
-      container.innerHTML = html;
-    } else {
-      container.innerHTML = '<p>No learners found in this class.</p>';
-    }
+
 
     // Most improved
     const improvedBody = document.querySelector('#improvedTable tbody');
@@ -953,10 +1031,10 @@ async function loadAnalysis() {
     }
 
     // Subject ranking
-    const subjectBody = document.querySelector('#subjectRankTable tbody');
+const subjectBody = document.querySelector('#subjectRankTable tbody');
     subjectBody.innerHTML = '';
     data.subjectRanking.forEach(s => {
-      subjectBody.innerHTML += `<tr><td>${s.subject}</td><td>${s.mean.toFixed(1)}</td></tr>`;
+      subjectBody.innerHTML += `<tr><td>${s.subject}</td><td>${s.mean.toFixed(1)}</td><td>${s.level || '-'}</td></tr>`;
     });
 
     msg.innerHTML = '';
@@ -1044,13 +1122,19 @@ async function loadReport() {
       subjBody.innerHTML += `<tr><td>${m.subject_name}</td><td>${m.score}</td><td>${gradeLabel}</td></tr>`;
     });
 
-    document.getElementById('reportPosition').textContent =
+document.getElementById('reportPosition').textContent =
       `Class Position: ${data.position} out of ${data.totalInClass}`;
+    const overallLabel = data.overallBand ? data.overallBand.grade_letter : '-';
+    document.getElementById('reportTotalPoints').textContent =
+      `Total Points: ${data.totalPoints}  |  Overall Grade: ${overallLabel}`;
 
     document.getElementById('reportGraph').innerHTML = buildLineGraph(data.history);
 
     document.getElementById('classTeacherRemark').value = data.remark.class_teacher_remark || '';
     document.getElementById('headTeacherRemark').value = data.remark.head_teacher_remark || '';
+    document.getElementById('parentRemark').value = data.remark.parent_remark || '';
+    document.getElementById('termOpenDate').value = data.remark.term_open_date || '';
+    document.getElementById('termCloseDate').value = data.remark.term_close_date || '';
 
     document.getElementById('reportOutput').style.display = 'block';
     msg.innerHTML = '';
@@ -1063,14 +1147,64 @@ async function saveRemarks() {
   if (!currentReportLearnerId || !currentReportExamId) return;
   const class_teacher_remark = document.getElementById('classTeacherRemark').value;
   const head_teacher_remark = document.getElementById('headTeacherRemark').value;
+  const parent_remark = document.getElementById('parentRemark').value;
+  const term_open_date = document.getElementById('termOpenDate').value;
+  const term_close_date = document.getElementById('termCloseDate').value;
   try {
     await api(`/api/report/${currentReportLearnerId}/${currentReportExamId}/remarks`, {
       method: 'POST',
-      body: JSON.stringify({ class_teacher_remark, head_teacher_remark })
+      body: JSON.stringify({ class_teacher_remark, head_teacher_remark, parent_remark, term_open_date, term_close_date })
     });
     document.getElementById('reportMsg').innerHTML = '<div class="success">Remarks saved.</div>';
   } catch (err) {
     document.getElementById('reportMsg').innerHTML = `<div class="error">${err.message}</div>`;
+  }
+}
+
+async function downloadAllClassReports() {
+  const classId = document.getElementById('reportClassSelect').value;
+  const examId = document.getElementById('reportExamSelect').value;
+  const msg = document.getElementById('bulkReportMsg');
+  if (!classId || !examId) { msg.innerHTML = '<div class="error">Choose a class and exam session first.</div>'; return; }
+  msg.innerHTML = 'Building reports, please wait...';
+  try {
+    const learners = await api(`/api/classes/${classId}/list`);
+    const container = document.getElementById('bulkReportContainer');
+    let combinedHtml = '';
+    for (const learner of learners) {
+      const data = await api(`/api/report/${learner.id}/${examId}`);
+      const overallLabel = data.overallBand ? data.overallBand.grade_letter : '-';
+      let subjectRows = '';
+      data.marks.forEach(m => {
+        const gradeLabel = m.band ? `${m.band.grade_letter} (${m.band.points} pts)` : '-';
+        subjectRows += `<tr><td>${m.subject_name}</td><td>${m.score}</td><td>${gradeLabel}</td></tr>`;
+      });
+      combinedHtml += `
+        <div style="page-break-after:always; padding:20px; border:1px solid #ddd; margin-bottom:16px;">
+          <h2 style="text-align:center;">${(schoolName || '').toUpperCase()}</h2>
+          <h2>${data.learner.name}</h2>
+          <p>Admission #: ${data.learner.admission_number} | UPI: ${data.learner.upi_number} | Sex: ${data.learner.sex || '-'}</p>
+          <table style="width:100%; border-collapse:collapse;">
+            <thead><tr><th style="text-align:left;border-bottom:1px solid #ccc;">Subject</th><th style="text-align:left;border-bottom:1px solid #ccc;">Score</th><th style="text-align:left;border-bottom:1px solid #ccc;">Grade</th></tr></thead>
+            <tbody>${subjectRows}</tbody>
+          </table>
+          <p><b>Class Position:</b> ${data.position} out of ${data.totalInClass}</p>
+          <p><b>Total Points:</b> ${data.totalPoints} | <b>Overall Grade:</b> ${overallLabel}</p>
+          <p><b>Class Teacher's Remark:</b> ${data.remark.class_teacher_remark || ''}</p>
+          <p><b>Head Teacher's Remark:</b> ${data.remark.head_teacher_remark || ''}</p>
+          <p><b>Parent/Guardian's Remark:</b> ${data.remark.parent_remark || ''}</p>
+        </div>`;
+    }
+    container.innerHTML = combinedHtml;
+    html2pdf().from(container).set({
+      margin: 10,
+      filename: 'class_reports.pdf',
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    }).save();
+    msg.innerHTML = '<div class="success">Downloaded.</div>';
+  } catch (err) {
+    msg.innerHTML = `<div class="error">${err.message}</div>`;
   }
 }
 
