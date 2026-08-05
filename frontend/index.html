@@ -219,6 +219,7 @@
       <div id="marksheetMsg"></div>
       <div id="marksheetPrintArea">
         <h2 id="marksheetSchoolHeader2" style="text-align:center;"></h2>
+        <h3 id="marksheetClassLine" style="text-align:center;"></h3>
         <div id="marksheetContainer" style="overflow-x:auto;"></div>
       </div>
     </div>
@@ -235,6 +236,7 @@
       <div id="analysisMsg"></div>
       <div id="analysisPrintArea">
         <h2 id="analysisSchoolHeader" style="text-align:center;"></h2>
+        <h3 id="analysisClassLine" style="text-align:center;"></h3>
         <div id="classTrendBox"></div>
         <h3>Learner Ranking (best to worst), with each subject shown</h3>
         <div id="learnerRankContainer" style="overflow-x:auto;"></div>
@@ -268,6 +270,7 @@
 
       <div id="reportOutput" class="printable" style="display:none; margin-top:20px; border:1px solid #ddd; padding:20px; border-radius:8px;">
         <h2 id="reportSchoolHeader" style="text-align:center;"></h2>
+        <h3 id="reportClassLine" style="text-align:center;"></h3>
         <h2 id="reportLearnerName"></h2>
         <p id="reportLearnerMeta"></p>
         <table id="reportSubjectsTable">
@@ -884,6 +887,7 @@ async function loadMarksheet() {
   if (!classId || !examId) { msg.innerHTML = '<div class="error">Add a class and exam session first.</div>'; return; }
   try {
     const data = await api(`/api/marksheet/${classId}/${examId}`);
+    document.getElementById('marksheetClassLine').textContent = `${data.class.stream_name} (Grade ${data.class.grade})`;
     let html = '<table><thead><tr><th>Name</th><th>Admission #</th>';
     data.subjects.forEach(s => { html += `<th>${s.name}</th>`; });
     html += '</tr></thead><tbody>';
@@ -931,6 +935,7 @@ async function loadAnalysis() {
   if (!classId || !examId) { msg.innerHTML = '<div class="error">Add a class and exam session first.</div>'; return; }
   try {
     const data = await api(`/api/analysis/class/${classId}/${examId}`);
+    document.getElementById('analysisClassLine').textContent = `${data.class.stream_name} (Grade ${data.class.grade})`;
 
     const trendBox = document.getElementById('classTrendBox');
     if (data.classTrend) {
@@ -1056,6 +1061,8 @@ async function loadReport() {
     currentReportLearnerId = learnerId;
     currentReportExamId = examId;
 
+    const reportCls = currentClasses.find(c => c.id === data.learner.class_id);
+    document.getElementById('reportClassLine').textContent = reportCls ? `${reportCls.stream_name} (Grade ${reportCls.grade})` : '';
     document.getElementById('reportLearnerName').textContent = data.learner.name;
     document.getElementById('reportLearnerMeta').textContent =
       `Admission #: ${data.learner.admission_number} | UPI: ${data.learner.upi_number} | Sex: ${data.learner.sex || '-'}`;
@@ -1124,9 +1131,11 @@ async function downloadAllClassReports() {
         const gradeLabel = m.band ? `${m.band.grade_letter} (${m.band.points} pts)` : '-';
         subjectRows += `<tr><td>${m.subject_name}</td><td>${m.score}</td><td>${gradeLabel}</td></tr>`;
       });
+      const bulkCls = currentClasses.find(c => c.id == classId);
       combinedHtml += `
         <div style="page-break-after:always; padding:20px; border:1px solid #ddd; margin-bottom:16px;">
           <h2 style="text-align:center;">${(schoolName || '').toUpperCase()}</h2>
+          <h3 style="text-align:center;">${bulkCls ? bulkCls.stream_name + ' (Grade ' + bulkCls.grade + ')' : ''}</h3>
           <h2>${data.learner.name}</h2>
           <p>Admission #: ${data.learner.admission_number} | UPI: ${data.learner.upi_number} | Sex: ${data.learner.sex || '-'}</p>
           <table style="width:100%; border-collapse:collapse;">
