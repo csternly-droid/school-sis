@@ -220,6 +220,7 @@
       <div id="marksheetPrintArea">
         <h2 id="marksheetSchoolHeader2" style="text-align:center;"></h2>
         <h3 id="marksheetClassLine" style="text-align:center;"></h3>
+        <h3 id="marksheetExamLine" style="text-align:center;"></h3>
         <div id="marksheetContainer" style="overflow-x:auto;"></div>
       </div>
     </div>
@@ -237,6 +238,7 @@
       <div id="analysisPrintArea">
         <h2 id="analysisSchoolHeader" style="text-align:center;"></h2>
         <h3 id="analysisClassLine" style="text-align:center;"></h3>
+        <h3 id="analysisExamLine" style="text-align:center;"></h3>
         <div id="classTrendBox"></div>
         <h3>Learner Ranking (best to worst), with each subject shown</h3>
         <div id="learnerRankContainer" style="overflow-x:auto;"></div>
@@ -271,7 +273,9 @@
       <div id="reportOutput" class="printable" style="display:none; margin-top:20px; border:1px solid #ddd; padding:20px; border-radius:8px;">
         <h2 id="reportSchoolHeader" style="text-align:center;"></h2>
         <h3 id="reportClassLine" style="text-align:center;"></h3>
+        <h3 id="reportExamLine" style="text-align:center;"></h3>
         <h2 id="reportLearnerName"></h2>
+        
         <p id="reportLearnerMeta"></p>
         <table id="reportSubjectsTable">
           <thead><tr><th>Subject</th><th>Score</th><th>Grade</th></tr></thead>
@@ -888,6 +892,8 @@ async function loadMarksheet() {
   try {
     const data = await api(`/api/marksheet/${classId}/${examId}`);
     document.getElementById('marksheetClassLine').textContent = `${data.class.stream_name} (Grade ${data.class.grade})`;
+    const msExam = currentExams.find(ex => ex.id == examId);
+    document.getElementById('marksheetExamLine').textContent = msExam ? msExam.name : '';
     let html = '<table><thead><tr><th>Name</th><th>Admission #</th>';
     data.subjects.forEach(s => { html += `<th>${s.name}</th>`; });
     html += '</tr></thead><tbody>';
@@ -935,7 +941,9 @@ async function loadAnalysis() {
   if (!classId || !examId) { msg.innerHTML = '<div class="error">Add a class and exam session first.</div>'; return; }
   try {
     const data = await api(`/api/analysis/class/${classId}/${examId}`);
-    document.getElementById('analysisClassLine').textContent = `${data.class.stream_name} (Grade ${data.class.grade})`;
+document.getElementById('analysisClassLine').textContent = `${data.class.stream_name} (Grade ${data.class.grade})`;
+    const anExam = currentExams.find(ex => ex.id == examId);
+    document.getElementById('analysisExamLine').textContent = anExam ? anExam.name : '';
 
     const trendBox = document.getElementById('classTrendBox');
     if (data.classTrend) {
@@ -1063,6 +1071,8 @@ async function loadReport() {
 
     const reportCls = currentClasses.find(c => c.id === data.learner.class_id);
     document.getElementById('reportClassLine').textContent = reportCls ? `${reportCls.stream_name} (Grade ${reportCls.grade})` : '';
+    const repExam = currentExams.find(ex => ex.id == examId);
+    document.getElementById('reportExamLine').textContent = repExam ? repExam.name : '';
     document.getElementById('reportLearnerName').textContent = data.learner.name;
     document.getElementById('reportLearnerMeta').textContent =
       `Admission #: ${data.learner.admission_number} | UPI: ${data.learner.upi_number} | Sex: ${data.learner.sex || '-'}`;
@@ -1132,10 +1142,12 @@ async function downloadAllClassReports() {
         subjectRows += `<tr><td>${m.subject_name}</td><td>${m.score}</td><td>${gradeLabel}</td></tr>`;
       });
       const bulkCls = currentClasses.find(c => c.id == classId);
+      const bulkExam = currentExams.find(ex => ex.id == examId);
       combinedHtml += `
         <div style="page-break-after:always; padding:20px; border:1px solid #ddd; margin-bottom:16px;">
           <h2 style="text-align:center;">${(schoolName || '').toUpperCase()}</h2>
           <h3 style="text-align:center;">${bulkCls ? bulkCls.stream_name + ' (Grade ' + bulkCls.grade + ')' : ''}</h3>
+          <h3 style="text-align:center;">${bulkExam ? bulkExam.name : ''}</h3>
           <h2>${data.learner.name}</h2>
           <p>Admission #: ${data.learner.admission_number} | UPI: ${data.learner.upi_number} | Sex: ${data.learner.sex || '-'}</p>
           <table style="width:100%; border-collapse:collapse;">
