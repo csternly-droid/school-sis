@@ -282,7 +282,7 @@ app.get('/api/exam-sessions', requireRole('admin', 'teacher'), wrap(async (req, 
 
 // ---------- TEACHER: enter marks ----------
 app.post('/api/marks', requireRole('teacher'), wrap(async (req, res) => {
-  const { exam_session_id, learner_id, subject_id, score } = req.body;
+  const { exam_session_id, learner_id, subject_id, score, comment } = req.body;
 
   if (score === undefined || score === null || Number(score) < 1 || Number(score) > 99) {
     return res.status(400).json({ error: 'Score must be between 01 and 99.' });
@@ -306,11 +306,11 @@ app.post('/api/marks', requireRole('teacher'), wrap(async (req, res) => {
   }
 
   await pool.query(`
-    INSERT INTO marks (school_id, exam_session_id, learner_id, subject_id, teacher_id, score)
-    VALUES ($1,$2,$3,$4,$5,$6)
+    INSERT INTO marks (school_id, exam_session_id, learner_id, subject_id, teacher_id, score, comment)
+    VALUES ($1,$2,$3,$4,$5,$6,$7)
     ON CONFLICT (exam_session_id, learner_id, subject_id)
-    DO UPDATE SET score=EXCLUDED.score, teacher_id=EXCLUDED.teacher_id, entered_at=NOW()
-  `, [req.user.school_id, exam_session_id, learner_id, subject_id, req.user.id, score]);
+    DO UPDATE SET score=EXCLUDED.score, teacher_id=EXCLUDED.teacher_id, comment=EXCLUDED.comment, entered_at=NOW()
+  `, [req.user.school_id, exam_session_id, learner_id, subject_id, req.user.id, score, comment || null]);
 
   res.json({ ok: true });
 }));
@@ -349,10 +349,13 @@ app.get('/api/marksheet/:classId/:examSessionId', requireRole('admin', 'teacher'
     return band ? band.grade_letter : null;
   }
 
-  const marksByLearner = {};
+ const marksByLearner = {};
+  const commentsByLearner = {};
   for (const m of marksRes.rows) {
     marksByLearner[m.learner_id] = marksByLearner[m.learner_id] || {};
     marksByLearner[m.learner_id][m.subject_id] = m.score;
+    commentsByLearner[m.learner_id] = commentsByLearner[m.learner_id] || {};
+    commentsByLearner[m.learner_id][m.subject_id] = m.comment;
   }
 
   res.json({
@@ -361,7 +364,8 @@ app.get('/api/marksheet/:classId/:examSessionId', requireRole('admin', 'teacher'
     rows: learnersRes.rows.map(l => ({
       learner: l,
       scores: subjectsRes.rows.map(s => marksByLearner[l.id]?.[s.id] ?? null),
-      levels: subjectsRes.rows.map(s => findLevel(marksByLearner[l.id]?.[s.id] ?? null))
+      levels: subjectsRes.rows.map(s => findLevel(marksByLearner[l.id]?.[s.id] ?? null)),
+      comments: subjectsRes.rows.map(s => commentsByLearner[l.id]?.[s.id] ?? null)
     }))
   });
 }));

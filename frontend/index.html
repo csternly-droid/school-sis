@@ -278,7 +278,7 @@
         
         <p id="reportLearnerMeta"></p>
         <table id="reportSubjectsTable">
-          <thead><tr><th>Subject</th><th>Score</th><th>Grade</th></tr></thead>
+          <thead><tr><th>Subject</th><th>Score</th><th>Grade</th><th>Teacher's Comment</th></tr></thead>
           <tbody></tbody>
         </table>
         <p id="reportPosition" style="font-weight:bold;"></p>
@@ -1081,7 +1081,7 @@ async function loadReport() {
     subjBody.innerHTML = '';
     data.marks.forEach(m => {
       const gradeLabel = m.band ? `${m.band.grade_letter} (${m.band.points} pts)` : '-';
-      subjBody.innerHTML += `<tr><td>${m.subject_name}</td><td>${m.score}</td><td>${gradeLabel}</td></tr>`;
+      subjBody.innerHTML += `<tr><td>${m.subject_name}</td><td>${m.score}</td><td>${gradeLabel}</td><td>${m.comment || ''}</td></tr>`;
     });
 
     document.getElementById('reportPosition').textContent =
@@ -1139,7 +1139,7 @@ async function downloadAllClassReports() {
       let subjectRows = '';
       data.marks.forEach(m => {
         const gradeLabel = m.band ? `${m.band.grade_letter} (${m.band.points} pts)` : '-';
-        subjectRows += `<tr><td>${m.subject_name}</td><td>${m.score}</td><td>${gradeLabel}</td></tr>`;
+        subjectRows += `<tr><td>${m.subject_name}</td><td>${m.score}</td><td>${gradeLabel}</td><td>${m.comment || ''}</td></tr>`;
       });
       const bulkCls = currentClasses.find(c => c.id == classId);
       const bulkExam = currentExams.find(ex => ex.id == examId);

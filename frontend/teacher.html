@@ -80,7 +80,7 @@
   <div class="card" id="marksCard" style="display:none;">
     <h3 id="marksHeader"></h3>
     <table id="marksTable">
-      <thead><tr><th>Name</th><th>Admission #</th><th>Score</th></tr></thead>
+      <thead><tr><th>Name</th><th>Admission #</th><th>Score</th><th>Comment</th></tr></thead>
       <tbody></tbody>
     </table>
   </div>
@@ -232,11 +232,14 @@ async function loadMarksEntry() {
     tbody.innerHTML = '';
     marksheet.rows.forEach(row => {
       const score = subjIndex >= 0 ? row.scores[subjIndex] : null;
+      const comment = subjIndex >= 0 && row.comments ? row.comments[subjIndex] : '';
       tbody.innerHTML += `<tr>
         <td>${row.learner.name}</td>
         <td>${row.learner.admission_number}</td>
-      <input type="number" value="${score === null ? '' : score}" min="1" max="99"
-            onchange="submitMark(${row.learner.id}, ${assignment.subject_id}, ${examId}, this.value)"></td>
+        <td><input type="number" id="score-${row.learner.id}" value="${score === null ? '' : score}" min="1" max="99"
+            onchange="submitMarkRow(${row.learner.id}, ${assignment.subject_id}, ${examId})"></td>
+        <td><input type="text" id="comment-${row.learner.id}" value="${comment || ''}" placeholder="Optional comment"
+            onchange="submitMarkRow(${row.learner.id}, ${assignment.subject_id}, ${examId})"></td>
       </tr>`;
     });
     document.getElementById('marksCard').style.display = 'block';
@@ -246,7 +249,11 @@ async function loadMarksEntry() {
   }
 }
 
-async function submitMark(learnerId, subjectId, examId, value) {
+async function submitMarkRow(learnerId, subjectId, examId) {
+  const scoreInput = document.getElementById(`score-${learnerId}`);
+  const commentInput = document.getElementById(`comment-${learnerId}`);
+  const value = scoreInput.value;
+  const comment = commentInput.value;
   if (value === '') return;
   try {
     await api('/api/marks', {
@@ -255,7 +262,8 @@ async function submitMark(learnerId, subjectId, examId, value) {
         exam_session_id: Number(examId),
         learner_id: learnerId,
         subject_id: subjectId,
-        score: Number(value)
+        score: Number(value),
+        comment: comment
       })
     });
     document.getElementById('marksMsg').innerHTML = '<div class="success">Saved.</div>';
