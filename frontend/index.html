@@ -1073,7 +1073,7 @@ async function generateAllClassReports() {
         subjectRows += `<tr><td>${m.subject_name}</td><td>${m.score}</td><td>${gradeLabel}</td><td>${m.comment || ''}</td></tr>`;
       });
       combinedHtml += `
-        <div style="page-break-after:always; padding:20px; border:1px solid #ddd; margin-bottom:16px;">
+        <div class="report-page" style="padding:20px; border:1px solid #ddd; margin-bottom:16px;">
           <h2 style="text-align:center;">${(schoolName || '').toUpperCase()}</h2>
           <h3 style="text-align:center;">${bulkCls ? bulkCls.stream_name + ' (Grade ' + bulkCls.grade + ')' : ''}</h3>
           <h3 style="text-align:center;">${bulkExam ? bulkExam.name : ''}</h3>
@@ -1101,17 +1101,32 @@ async function generateAllClassReports() {
 async function downloadAllClassReports() {
   const container = document.getElementById('bulkReportContainer');
   const msg = document.getElementById('bulkReportMsg');
-  if (!container.innerHTML.trim()) {
+  const reportPages = container.querySelectorAll('.report-page');
+  if (!reportPages.length) {
     msg.innerHTML = '<div class="error">Click "Generate All Reports for This Class" first.</div>';
     return;
   }
-  html2pdf().from(container).set({
-    margin: 10,
-    filename: 'class_reports.pdf',
-    html2canvas: { scale: 2 },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-  }).save();
-  msg.innerHTML = '<div class="success">Downloaded.</div>';
+  msg.innerHTML = 'Building PDF, please wait — this can take a while for a large class...';
+  try {
+    const opt = {
+      margin: 10,
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+    // Render each learner's report as its own page instead of one giant
+    // canvas for the whole class - a single huge canvas silently comes
+    // out blank once it exceeds the browser's max canvas size.
+    let worker = html2pdf().set(opt).from(reportPages[0]).toPdf();
+    for (let i = 1; i < reportPages.length; i++) {
+      worker = worker
+        .get('pdf').then(pdf => { pdf.addPage(); })
+        .from(reportPages[i]).toContainer().toCanvas().toPdf();
+    }
+    await worker.save('class_reports.pdf');
+    msg.innerHTML = '<div class="success">Downloaded.</div>';
+  } catch (err) {
+    msg.innerHTML = `<div class="error">${err.message || 'Failed to generate the PDF - try again, or a smaller class if it keeps failing.'}</div>`;
+  }
 }
 
 // ====== SCHOOL NAME HEADER ======
