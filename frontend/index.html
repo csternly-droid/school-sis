@@ -79,7 +79,6 @@
       <button data-tab="marksheet">Mark Sheet</button>
       <button data-tab="analysis">Analysis</button>
       <button data-tab="report">Report</button>
-      <button data-tab="timetable">Timetable</button>
     </nav>
 
     <!-- CLASSES TAB -->
@@ -265,7 +264,8 @@
         <button onclick="loadReport()">Generate Report</button>
       </div>
       <div class="row no-print">
-        <button onclick="downloadAllClassReports()">Download All Reports for This Class (PDF)</button>
+        <button onclick="generateAllClassReports()">Generate All Reports for This Class</button>
+        <button onclick="downloadAllClassReports()">Download All Reports (PDF)</button>
       </div>
       <div id="reportMsg" class="no-print"></div>
       <div id="bulkReportMsg" class="no-print"></div>
@@ -275,7 +275,6 @@
         <h3 id="reportClassLine" style="text-align:center;"></h3>
         <h3 id="reportExamLine" style="text-align:center;"></h3>
         <h2 id="reportLearnerName"></h2>
-        
         <p id="reportLearnerMeta"></p>
         <table id="reportSubjectsTable">
           <thead><tr><th>Subject</th><th>Score</th><th>Grade</th><th>Teacher's Comment</th></tr></thead>
@@ -309,90 +308,6 @@
         </div>
       </div>
       <div id="bulkReportContainer" style="display:none;"></div>
-    </div>
-
-    <!-- TIMETABLE TAB -->
-    <div id="tab-timetable" class="tab hidden">
-      <h2>Timetable</h2>
-
-      <h3>1. School Timetable Settings</h3>
-      <p>Primary (Grade 1-6) lessons are 35 minutes. Junior Secondary (Grade 7-9) lessons are 40 minutes - this is automatic based on grade.</p>
-      <form id="settingsForm">
-        <label>School start time</label>
-        <select id="settingDayStart">
-          <option value="08:00">8:00 AM</option>
-          <option value="08:20">8:20 AM</option>
-        </select>
-        <label>Lessons per day</label>
-        <input type="number" id="settingLessonsPerDay" min="1" max="12" value="8">
-        <label>Break 1 - after which lesson number?</label>
-        <input type="number" id="settingBreak1After" min="1" value="2">
-        <label>Break 1 duration (minutes)</label>
-        <input type="number" id="settingBreak1Duration" min="1" value="15">
-        <label>Break 2 - after which lesson number?</label>
-        <input type="number" id="settingBreak2After" min="1" value="5">
-        <label>Break 2 duration (minutes)</label>
-        <input type="number" id="settingBreak2Duration" min="1" value="15">
-        <label>Lessons after lunch - Primary (Grade 1-6)</label>
-        <input type="number" id="settingLessonsAfterLunchPrimary" min="0" value="4">
-        <label>Lessons after lunch - Junior Secondary (Grade 7-9)</label>
-        <input type="number" id="settingLessonsAfterLunchJunior" min="0" value="3">
-        <label>Lunch duration (minutes)</label>
-        <input type="number" id="settingLunchDuration" min="1" value="40">
-        <button type="submit">Save Settings</button>
-      </form>
-      <div id="settingsMsg"></div>
-
-      <h3>2. Lessons Per Week Per Subject</h3>
-      <p>Set how many times a week each subject should be taught, before generating the timetable.</p>
-      <select id="lpwGradeSelect">
-        <option value="1">Grade 1</option>
-        <option value="2">Grade 2</option>
-        <option value="3">Grade 3</option>
-        <option value="4">Grade 4</option>
-        <option value="5">Grade 5</option>
-        <option value="6">Grade 6</option>
-        <option value="7">Grade 7</option>
-        <option value="8">Grade 8</option>
-        <option value="9">Grade 9</option>
-      </select>
-      <table id="lpwTable">
-        <thead><tr><th>Subject</th><th>Lessons per week</th><th>Scheduling style</th><th></th></tr></thead>
-        <tbody></tbody>
-      </table>
-      <div id="lpwMsg"></div>
-
-      <h3>3. Generate Timetable</h3>
-      <p>This builds the whole school's timetable at once, based on teacher assignments and the lesson counts above. It automatically avoids any teacher or class being double-booked.</p>
-      <button onclick="generateTimetable()">Generate Timetable For Whole School</button>
-      <div id="generateMsg"></div>
-
-      <h3>4. Class Timetable</h3>
-      <select id="timetableClassSelect"></select>
-      <button onclick="loadClassTimetable()">View Class Timetable</button>
-      <button onclick="printArea('classTimetablePrintArea')">Print Class Timetable</button>
-      <button onclick="downloadArea('classTimetablePrintArea', 'class_timetable.pdf')">Download Class Timetable (PDF)</button>
-      <button onclick="downloadBandTimetable(false)">Download Primary Timetable (All Classes)</button>
-      <button onclick="downloadBandTimetable(true)">Download Junior Secondary Timetable (All Classes)</button>
-      <div id="bandTimetableContainer" style="display:none;"></div>
-      <div id="timetableMsg"></div>
-      <div id="classTimetablePrintArea" class="printable">
-        <h2 id="classTimetableSchoolHeader" style="text-align:center;"></h2>
-        <h3 id="classTimetableTitle" style="text-align:center;"></h3>
-        <div id="timetableContainer" style="overflow-x:auto;"></div>
-      </div>
-
-      <h3>5. Individual Teacher Timetable</h3>
-      <select id="timetableTeacherSelect"></select>
-      <button onclick="loadTeacherTimetable()">View Teacher Timetable</button>
-      <button onclick="printArea('teacherTimetablePrintArea')">Print Teacher Timetable</button>
-      <button onclick="downloadArea('teacherTimetablePrintArea', 'teacher_timetable.pdf')">Download Teacher Timetable (PDF)</button>
-      <div id="teacherTimetableMsg"></div>
-      <div id="teacherTimetablePrintArea" class="printable">
-        <h2 id="teacherTimetableSchoolHeader" style="text-align:center;"></h2>
-        <h3 id="teacherTimetableTitle" style="text-align:center;"></h3>
-        <div id="teacherTimetableContainer" style="overflow-x:auto;"></div>
-      </div>
     </div>
   </div>
 </div>
@@ -448,6 +363,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 function logout() {
   clearToken();
   clearTimeout(inactivityTimer);
+  if (sessionCheckInterval) clearInterval(sessionCheckInterval);
   document.getElementById('dashboard').classList.add('hidden');
   document.getElementById('loginScreen').classList.remove('hidden');
 }
@@ -480,14 +396,11 @@ function showDashboard() {
   loadExams();
   loadGradingBands();
   loadSchoolInfo();
-  loadSchoolSettings();
-  loadLessonsPerWeek();
   if (sessionCheckInterval) clearInterval(sessionCheckInterval);
   sessionCheckInterval = setInterval(() => { api('/api/session-check').catch(() => {}); }, 20000);
   resetInactivityTimer();
 }
 
-// If already logged in from before, skip straight to dashboard
 if (getToken()) showDashboard();
 
 // ====== TAB SWITCHING ======
@@ -499,6 +412,24 @@ document.getElementById('mainNav').addEventListener('click', (e) => {
   document.querySelectorAll('.tab').forEach(t => t.classList.add('hidden'));
   document.getElementById('tab-' + tab).classList.remove('hidden');
 });
+
+// ====== PRINT / DOWNLOAD HELPERS ======
+function printArea(id) {
+  const el = document.getElementById(id);
+  document.querySelectorAll('.printable').forEach(p => { if (p.id !== id) p.classList.remove('printable'); });
+  if (!el.classList.contains('printable')) el.classList.add('printable');
+  window.print();
+}
+
+function downloadArea(id, filename) {
+  const el = document.getElementById(id);
+  html2pdf().from(el).set({
+    margin: 10,
+    filename: filename,
+    html2canvas: { scale: 2 },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+  }).save();
+}
 
 // ====== CLASSES ======
 let currentClasses = [];
@@ -519,7 +450,6 @@ async function loadClasses() {
     populateAssignmentSelects();
     populateMarksheetSelects();
     populateReportClassSelect();
-    populateTimetableClassSelect();
   } catch (err) {
     document.getElementById('classMsg').innerHTML = `<div class="error">${err.message}</div>`;
   }
@@ -699,7 +629,6 @@ async function loadTeachers() {
       </tr>`;
     });
     populateAssignmentSelects();
-    populateTimetableTeacherSelect();
   } catch (err) {
     document.getElementById('teacherMsg').innerHTML = `<div class="error">${err.message}</div>`;
   }
@@ -941,7 +870,7 @@ async function loadAnalysis() {
   if (!classId || !examId) { msg.innerHTML = '<div class="error">Add a class and exam session first.</div>'; return; }
   try {
     const data = await api(`/api/analysis/class/${classId}/${examId}`);
-document.getElementById('analysisClassLine').textContent = `${data.class.stream_name} (Grade ${data.class.grade})`;
+    document.getElementById('analysisClassLine').textContent = `${data.class.stream_name} (Grade ${data.class.grade})`;
     const anExam = currentExams.find(ex => ex.id == examId);
     document.getElementById('analysisExamLine').textContent = anExam ? anExam.name : '';
 
@@ -1123,7 +1052,7 @@ async function saveRemarks() {
   }
 }
 
-async function downloadAllClassReports() {
+async function generateAllClassReports() {
   const classId = document.getElementById('reportClassSelect').value;
   const examId = document.getElementById('reportExamSelect').value;
   const msg = document.getElementById('bulkReportMsg');
@@ -1132,6 +1061,8 @@ async function downloadAllClassReports() {
   try {
     const learners = await api(`/api/classes/${classId}/list`);
     const container = document.getElementById('bulkReportContainer');
+    const bulkCls = currentClasses.find(c => c.id == classId);
+    const bulkExam = currentExams.find(ex => ex.id == examId);
     let combinedHtml = '';
     for (const learner of learners) {
       const data = await api(`/api/report/${learner.id}/${examId}`);
@@ -1141,8 +1072,6 @@ async function downloadAllClassReports() {
         const gradeLabel = m.band ? `${m.band.grade_letter} (${m.band.points} pts)` : '-';
         subjectRows += `<tr><td>${m.subject_name}</td><td>${m.score}</td><td>${gradeLabel}</td><td>${m.comment || ''}</td></tr>`;
       });
-      const bulkCls = currentClasses.find(c => c.id == classId);
-      const bulkExam = currentExams.find(ex => ex.id == examId);
       combinedHtml += `
         <div style="page-break-after:always; padding:20px; border:1px solid #ddd; margin-bottom:16px;">
           <h2 style="text-align:center;">${(schoolName || '').toUpperCase()}</h2>
@@ -1151,7 +1080,7 @@ async function downloadAllClassReports() {
           <h2>${data.learner.name}</h2>
           <p>Admission #: ${data.learner.admission_number} | UPI: ${data.learner.upi_number} | Sex: ${data.learner.sex || '-'}</p>
           <table style="width:100%; border-collapse:collapse;">
-            <thead><tr><th style="text-align:left;border-bottom:1px solid #ccc;">Subject</th><th style="text-align:left;border-bottom:1px solid #ccc;">Score</th><th style="text-align:left;border-bottom:1px solid #ccc;">Grade</th></tr></thead>
+            <thead><tr><th style="text-align:left;border-bottom:1px solid #ccc;">Subject</th><th style="text-align:left;border-bottom:1px solid #ccc;">Score</th><th style="text-align:left;border-bottom:1px solid #ccc;">Grade</th><th style="text-align:left;border-bottom:1px solid #ccc;">Comment</th></tr></thead>
             <tbody>${subjectRows}</tbody>
           </table>
           <p><b>Class Position:</b> ${data.position} out of ${data.totalInClass}</p>
@@ -1162,365 +1091,27 @@ async function downloadAllClassReports() {
         </div>`;
     }
     container.innerHTML = combinedHtml;
-    html2pdf().from(container).set({
-      margin: 10,
-      filename: 'class_reports.pdf',
-      html2canvas: { scale: 2 },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    }).save();
-    msg.innerHTML = '<div class="success">Downloaded.</div>';
+    container.style.display = 'block';
+    msg.innerHTML = `<div class="success">Generated ${learners.length} report(s) below - scroll down to check them, then click Download.</div>`;
   } catch (err) {
     msg.innerHTML = `<div class="error">${err.message}</div>`;
   }
 }
 
-// ====== TIMETABLE ======
-const TIMETABLE_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-let currentSchoolSettings = null;
-
-function printArea(id) {
-  const el = document.getElementById(id);
-  document.querySelectorAll('.printable').forEach(p => { if (p.id !== id) p.classList.remove('printable'); });
-  if (!el.classList.contains('printable')) el.classList.add('printable');
-  window.print();
-}
-
-function downloadArea(id, filename) {
-  const el = document.getElementById(id);
-  html2pdf().from(el).set({
-    margin: 10,
-    filename: filename,
-    html2canvas: { scale: 2 },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
-  }).save();
-}
-
-function populateTimetableClassSelect() {
-  const select = document.getElementById('timetableClassSelect');
-  if (!select) return;
-  select.innerHTML = currentClasses.map(c => `<option value="${c.id}" data-grade="${c.grade}">${c.stream_name} (Grade ${c.grade})</option>`).join('');
-}
-
-// ---- Settings ----
-async function loadSchoolSettings() {
-  try {
-    const s = await api('/api/school-settings');
-    currentSchoolSettings = s;
-    document.getElementById('settingDayStart').value = s.day_start_time;
-    document.getElementById('settingLessonsPerDay').value = s.lessons_per_day;
-    document.getElementById('settingBreak1After').value = s.break1_after_period;
-    document.getElementById('settingBreak1Duration').value = s.break1_duration;
-    document.getElementById('settingBreak2After').value = s.break2_after_period;
-    document.getElementById('settingBreak2Duration').value = s.break2_duration;
-    document.getElementById('settingLessonsAfterLunchPrimary').value = Math.max(0, s.lessons_per_day - s.lunch_after_period_primary);
-    document.getElementById('settingLessonsAfterLunchJunior').value = Math.max(0, s.lessons_per_day - s.lunch_after_period_junior);
-    document.getElementById('settingLunchDuration').value = s.lunch_duration;
-  } catch (err) {
-    document.getElementById('settingsMsg').innerHTML = `<div class="error">${err.message}</div>`;
+async function downloadAllClassReports() {
+  const container = document.getElementById('bulkReportContainer');
+  const msg = document.getElementById('bulkReportMsg');
+  if (!container.innerHTML.trim()) {
+    msg.innerHTML = '<div class="error">Click "Generate All Reports for This Class" first.</div>';
+    return;
   }
-}
-
-document.getElementById('settingsForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const lessonsPerDay = Number(document.getElementById('settingLessonsPerDay').value);
-  const lessonsAfterLunchPrimary = Number(document.getElementById('settingLessonsAfterLunchPrimary').value);
-  const lessonsAfterLunchJunior = Number(document.getElementById('settingLessonsAfterLunchJunior').value);
-  const body = {
-    day_start_time: document.getElementById('settingDayStart').value,
-    lessons_per_day: lessonsPerDay,
-    break1_after_period: Number(document.getElementById('settingBreak1After').value),
-    break1_duration: Number(document.getElementById('settingBreak1Duration').value),
-    break2_after_period: Number(document.getElementById('settingBreak2After').value),
-    break2_duration: Number(document.getElementById('settingBreak2Duration').value),
-    lunch_after_period_primary: Math.max(0, lessonsPerDay - lessonsAfterLunchPrimary),
-    lunch_after_period_junior: Math.max(0, lessonsPerDay - lessonsAfterLunchJunior),
-    lunch_duration: Number(document.getElementById('settingLunchDuration').value)
-  };
-  const msg = document.getElementById('settingsMsg');
-  try {
-    await api('/api/school-settings', { method: 'POST', body: JSON.stringify(body) });
-    currentSchoolSettings = body;
-    msg.innerHTML = '<div class="success">Settings saved.</div>';
-  } catch (err) {
-    msg.innerHTML = `<div class="error">${err.message}</div>`;
-  }
-});
-
-// ---- Lessons per week ----
-document.getElementById('lpwGradeSelect').addEventListener('change', loadLessonsPerWeek);
-
-async function loadLessonsPerWeek() {
-  const grade = document.getElementById('lpwGradeSelect').value;
-  const msg = document.getElementById('lpwMsg');
-  try {
-    const subjects = currentSubjects.filter(s => String(s.grade) === String(grade));
-    const existing = await api(`/api/subject-lessons?grade=${grade}`);
-    const existingMap = {};
-    existing.forEach(e => { existingMap[e.subject_id] = e; });
-    const tbody = document.querySelector('#lpwTable tbody');
-    tbody.innerHTML = '';
-    subjects.forEach(s => {
-      const row = existingMap[s.id];
-      const val = row ? row.lessons_per_week : '';
-      const style = row ? row.schedule_style : 'normal';
-      tbody.innerHTML += `<tr><td>${s.name}</td>
-        <td><input type="number" min="0" max="20" id="lpw-${s.id}" value="${val}"></td>
-        <td><select id="lpw-style-${s.id}">
-          <option value="normal" ${style === 'normal' ? 'selected' : ''}>Normal (spread across week)</option>
-          <option value="daily" ${style === 'daily' ? 'selected' : ''}>Daily (one lesson every school day)</option>
-          <option value="double" ${style === 'double' ? 'selected' : ''}>Double lesson (2 back-to-back periods)</option>
-          <option value="one_double" ${style === 'one_double' ? 'selected' : ''}>One double lesson per week (rest spread normally)</option>
-          <option value="one_double" ${style === 'one_double' ? 'selected' : ''}>One double lesson per week (rest spread normally)</option>
-        </select></td>
-        <td><button onclick="saveLessonsPerWeek(${grade}, ${s.id})">Save</button></td></tr>`;
-    });
-    if (!subjects.length) {
-      tbody.innerHTML = '<tr><td colspan="4">No subjects added for this grade yet - add them under the Subjects tab first.</td></tr>';
-    }
-    msg.innerHTML = '';
-  } catch (err) {
-    msg.innerHTML = `<div class="error">${err.message}</div>`;
-  }
-}
-
-async function saveLessonsPerWeek(grade, subjectId) {
-  const lessons_per_week = Number(document.getElementById(`lpw-${subjectId}`).value);
-  const schedule_style = document.getElementById(`lpw-style-${subjectId}`).value;
-  try {
-    await api('/api/subject-lessons', { method: 'POST', body: JSON.stringify({ grade, subject_id: subjectId, lessons_per_week, schedule_style }) });
-    document.getElementById('lpwMsg').innerHTML = '<div class="success">Saved.</div>';
-  } catch (err) {
-    document.getElementById('lpwMsg').innerHTML = `<div class="error">${err.message}</div>`;
-  }
-}
-
-// ---- Generate ----
-async function generateTimetable() {
-  const msg = document.getElementById('generateMsg');
-  msg.innerHTML = 'Generating...';
-  try {
-    const result = await api('/api/timetable/generate', { method: 'POST', body: JSON.stringify({}) });
-    let html = `<div class="success">Placed ${result.placed} of ${result.total_requested} required lessons with zero clashes.</div>`;
-    if (result.unplaced.length) {
-      html += `<div class="error">Could not fit ${result.unplaced.reduce((a,u)=>a+u.missing,0)} lesson(s) - try increasing "Lessons per day" or reducing lessons-per-week for some subjects. Details in browser console.</div>`;
-      console.log('Unplaced lessons:', result.unplaced);
-    }
-    msg.innerHTML = html;
-  } catch (err) {
-    msg.innerHTML = `<div class="error">${err.message}</div>`;
-  }
-}
-
-// ---- Time calculation ----
-function computeSchedule(startTime, lessonDuration, lessonsPerDay, settings, isJunior) {
-  const [sh, sm] = startTime.split(':').map(Number);
-  let cursor = sh * 60 + sm;
-  const schedule = [];
-  const lunchAfter = isJunior ? settings.lunch_after_period_junior : settings.lunch_after_period_primary;
-  for (let p = 1; p <= lessonsPerDay; p++) {
-    const start = cursor;
-    const end = start + lessonDuration;
-    schedule.push({ type: 'lesson', period: p, start, end });
-    cursor = end;
-    if (p === Number(settings.break1_after_period)) {
-      schedule.push({ type: 'break', label: 'Break 1', start: cursor, end: cursor + Number(settings.break1_duration) });
-      cursor += Number(settings.break1_duration);
-    }
-    if (p === Number(lunchAfter)) {
-      schedule.push({ type: 'lunch', label: 'Lunch', start: cursor, end: cursor + Number(settings.lunch_duration) });
-      cursor += Number(settings.lunch_duration);
-    }
-    if (p === Number(settings.break2_after_period)) {
-      schedule.push({ type: 'break', label: 'Break 2', start: cursor, end: cursor + Number(settings.break2_duration) });
-      cursor += Number(settings.break2_duration);
-    }
-  }
-  return schedule;
-}
-
-function formatMinutes(mins) {
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const h12 = h % 12 === 0 ? 12 : h % 12;
-  return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
-}
-
-// ---- Class timetable ----
-async function loadClassTimetable() {
-  const select = document.getElementById('timetableClassSelect');
-  const classId = select.value;
-  const msg = document.getElementById('timetableMsg');
-  const container = document.getElementById('timetableContainer');
-  if (!classId) { msg.innerHTML = '<div class="error">Choose a class.</div>'; return; }
-  const selectedOption = select.options[select.selectedIndex];
-  const grade = Number(selectedOption.dataset.grade);
-  const cls = currentClasses.find(c => c.id == classId);
-  const isJunior = grade >= 7;
-  const lessonDuration = isJunior ? 40 : 35;
-
-  if (!currentSchoolSettings) await loadSchoolSettings();
-  const schedule = computeSchedule(currentSchoolSettings.day_start_time, lessonDuration, currentSchoolSettings.lessons_per_day, currentSchoolSettings, isJunior);
-
-  try {
-    const entries = await api(`/api/timetable/${classId}`);
-    const entryMap = {};
-    entries.forEach(e => { entryMap[`${e.day_of_week}-${e.period_number}`] = e; });
-
-    document.getElementById('classTimetableSchoolHeader').textContent = (schoolName || '').toUpperCase();
-    document.getElementById('classTimetableTitle').textContent = `${cls.stream_name} (Grade ${cls.grade}) - Timetable`;
-
-    let html = '<table><thead><tr><th>Time</th>';
-    TIMETABLE_DAYS.forEach(d => { html += `<th>${d}</th>`; });
-    html += '</tr></thead><tbody>';
-    schedule.forEach(row => {
-      const timeLabel = `${formatMinutes(row.start)} - ${formatMinutes(row.end)}`;
-      if (row.type === 'lesson') {
-        html += `<tr><td>${timeLabel}</td>`;
-        TIMETABLE_DAYS.forEach(d => {
-          const e = entryMap[`${d}-${row.period}`];
-          const label = e ? `${e.subject_name || '?'}<br><small>${e.teacher_name || ''}</small>` : '-';
-          html += `<td style="text-align:center;">${label}</td>`;
-        });
-        html += '</tr>';
-      } else {
-        html += `<tr style="background:#f0f0f0;"><td>${timeLabel}</td><td colspan="5" style="text-align:center;font-weight:bold;">${row.label}</td></tr>`;
-      }
-    });
-    html += '</tbody></table>';
-    container.innerHTML = html;
-    msg.innerHTML = '';
-  } catch (err) {
-    msg.innerHTML = `<div class="error">${err.message}</div>`;
-  }
-}
-
-// ---- Bulk timetable download by grade band ----
-async function downloadBandTimetable(isJunior) {
-  const msg = document.getElementById('timetableMsg');
-  const bandClasses = currentClasses.filter(c => isJunior ? c.grade >= 7 : c.grade <= 6);
-  if (!bandClasses.length) { msg.innerHTML = '<div class="error">No classes found for that section.</div>'; return; }
-  if (!currentSchoolSettings) await loadSchoolSettings();
-  const lessonDuration = isJunior ? 40 : 35;
-  const schedule = computeSchedule(currentSchoolSettings.day_start_time, lessonDuration, currentSchoolSettings.lessons_per_day, currentSchoolSettings, isJunior);
-
-  let combinedHtml = '';
-  for (const cls of bandClasses) {
-    try {
-      const entries = await api(`/api/timetable/${cls.id}`);
-      const entryMap = {};
-      entries.forEach(e => { entryMap[`${e.day_of_week}-${e.period_number}`] = e; });
-      let html = `<div style="page-break-after:always; padding:16px;">
-        <h2 style="text-align:center;">${(schoolName || '').toUpperCase()}</h2>
-        <h3 style="text-align:center;">${cls.stream_name} (Grade ${cls.grade}) - Timetable</h3>
-        <table style="width:100%; border-collapse:collapse;"><thead><tr><th style="border-bottom:1px solid #ccc;text-align:left;">Time</th>`;
-      TIMETABLE_DAYS.forEach(d => { html += `<th style="border-bottom:1px solid #ccc;">${d}</th>`; });
-      html += '</tr></thead><tbody>';
-      schedule.forEach(row => {
-        const timeLabel = `${formatMinutes(row.start)} - ${formatMinutes(row.end)}`;
-        if (row.type === 'lesson') {
-          html += `<tr><td>${timeLabel}</td>`;
-          TIMETABLE_DAYS.forEach(d => {
-            const e = entryMap[`${d}-${row.period}`];
-            const label = e ? `${e.subject_name || '?'}<br><small>${e.teacher_name || ''}</small>` : '-';
-            html += `<td style="text-align:center;">${label}</td>`;
-          });
-          html += '</tr>';
-        } else {
-          html += `<tr style="background:#f0f0f0;"><td>${timeLabel}</td><td colspan="5" style="text-align:center;font-weight:bold;">${row.label}</td></tr>`;
-        }
-      });
-      html += '</tbody></table></div>';
-      combinedHtml += html;
-    } catch (err) {
-      // skip this class and continue with the rest
-    }
-  }
-
-  const container = document.getElementById('bandTimetableContainer');
-  container.innerHTML = combinedHtml;
   html2pdf().from(container).set({
     margin: 10,
-    filename: (isJunior ? 'junior_secondary' : 'primary') + '_timetable.pdf',
+    filename: 'class_reports.pdf',
     html2canvas: { scale: 2 },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
   }).save();
   msg.innerHTML = '<div class="success">Downloaded.</div>';
-}
-
-function editTimetableCell(classId, day, period) {
-  if (!currentTimetableSubjects.length) { alert('Add subjects for this grade first, under the Subjects tab.'); return; }
-  const subjectList = currentTimetableSubjects.map((s, i) => `${i + 1}. ${s.name}`).join('\n');
-  const subjIdx = prompt(`Choose subject number for ${day} period ${period}:\n${subjectList}`);
-  if (subjIdx === null) return;
-  const subject = currentTimetableSubjects[Number(subjIdx) - 1];
-  if (!subject) { alert('Invalid subject number.'); return; }
-
-  if (!currentTeachers.length) { alert('Add teachers first, under the Teachers tab.'); return; }
-  const teacherList = currentTeachers.map((t, i) => `${i + 1}. ${t.full_name} (${t.serial_number})`).join('\n');
-  const teachIdx = prompt(`Choose teacher number:\n${teacherList}`);
-  if (teachIdx === null) return;
-  const teacher = currentTeachers[Number(teachIdx) - 1];
-  if (!teacher) { alert('Invalid teacher number.'); return; }
-
-  api('/api/timetable', {
-    method: 'POST',
-    body: JSON.stringify({ class_id: classId, day_of_week: day, period_number: period, subject_id: subject.id, teacher_id: teacher.id })
-  }).then(loadClassTimetable).catch(err => alert(err.message));
-}
-let currentTimetableSubjects = [];
-
-// ---- Individual teacher timetable ----
-function populateTimetableTeacherSelect() {
-  const select = document.getElementById('timetableTeacherSelect');
-  if (!select) return;
-  select.innerHTML = currentTeachers.map(t => `<option value="${t.id}">${t.full_name} (${t.serial_number})</option>`).join('');
-}
-
-async function loadTeacherTimetable() {
-  const teacherId = document.getElementById('timetableTeacherSelect').value;
-  const msg = document.getElementById('teacherTimetableMsg');
-  const container = document.getElementById('teacherTimetableContainer');
-  if (!teacherId) { msg.innerHTML = '<div class="error">Choose a teacher.</div>'; return; }
-  const teacher = currentTeachers.find(t => t.id == teacherId);
-
-  if (!currentSchoolSettings) await loadSchoolSettings();
-
-  try {
-    const entries = await api(`/api/timetable/teacher/${teacherId}`);
-    document.getElementById('teacherTimetableSchoolHeader').textContent = (schoolName || '').toUpperCase();
-    document.getElementById('teacherTimetableTitle').textContent = `${teacher.full_name} - Individual Timetable`;
-
-    const entryMap = {};
-    entries.forEach(e => { entryMap[`${e.day_of_week}-${e.period_number}`] = e; });
-
-    const teachesJunior = entries.some(e => e.grade >= 7);
-    const lessonDuration = teachesJunior ? 40 : 35;
-    const schedule = computeSchedule(currentSchoolSettings.day_start_time, lessonDuration, currentSchoolSettings.lessons_per_day, currentSchoolSettings, teachesJunior);
-
-    let html = '<table><thead><tr><th>Time</th>';
-    TIMETABLE_DAYS.forEach(d => { html += `<th>${d}</th>`; });
-    html += '</tr></thead><tbody>';
-    schedule.forEach(row => {
-      const timeLabel = `${formatMinutes(row.start)} - ${formatMinutes(row.end)}`;
-      if (row.type === 'lesson') {
-        html += `<tr><td>${timeLabel}</td>`;
-        TIMETABLE_DAYS.forEach(d => {
-          const e = entryMap[`${d}-${row.period}`];
-          const label = e ? `${e.subject_name || '?'}<br><small>${e.stream_name} (G${e.grade})</small>` : '-';
-          html += `<td style="text-align:center;">${label}</td>`;
-        });
-        html += '</tr>';
-      } else {
-        html += `<tr style="background:#f0f0f0;"><td>${timeLabel}</td><td colspan="5" style="text-align:center;font-weight:bold;">${row.label}</td></tr>`;
-      }
-    });
-    html += '</tbody></table>';
-    container.innerHTML = html;
-    msg.innerHTML = '';
-  } catch (err) {
-    msg.innerHTML = `<div class="error">${err.message}</div>`;
-  }
 }
 
 // ====== SCHOOL NAME HEADER ======
