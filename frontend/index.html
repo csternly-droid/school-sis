@@ -288,17 +288,21 @@
           <div style="flex:1;">
             <label>Term Opening Date</label>
             <input type="date" id="termOpenDate">
+            <div style="border-bottom:1px solid #000; height:20px; margin-top:4px;"></div>
           </div>
           <div style="flex:1;">
             <label>Term Closing Date</label>
             <input type="date" id="termCloseDate">
+            <div style="border-bottom:1px solid #000; height:20px; margin-top:4px;"></div>
           </div>
         </div>
         <h3>Remarks</h3>
         <label>Class Teacher's Remark</label>
         <textarea id="classTeacherRemark"></textarea>
+        <div style="border-bottom:1px solid #000; height:24px; margin:4px 0 16px 0;"></div>
         <label>Head Teacher's Remark</label>
         <textarea id="headTeacherRemark"></textarea>
+        <div style="border-bottom:1px solid #000; height:24px; margin:4px 0 16px 0;"></div>
         <label>Parent/Guardian's Remark</label>
         <textarea id="parentRemark"></textarea>
         <div class="no-print">
@@ -1085,8 +1089,14 @@ async function generateAllClassReports() {
           </table>
           <p><b>Class Position:</b> ${data.position} out of ${data.totalInClass}</p>
           <p><b>Total Points:</b> ${data.totalPoints} | <b>Overall Grade:</b> ${overallLabel}</p>
+          <p><b>Term Opening Date:</b> ${data.remark.term_open_date || ''}</p>
+          <div style="border-bottom:1px solid #000; height:20px; margin:4px 0 12px 0;"></div>
+          <p><b>Term Closing Date:</b> ${data.remark.term_close_date || ''}</p>
+          <div style="border-bottom:1px solid #000; height:20px; margin:4px 0 12px 0;"></div>
           <p><b>Class Teacher's Remark:</b> ${data.remark.class_teacher_remark || ''}</p>
+          <div style="border-bottom:1px solid #000; height:24px; margin:4px 0 16px 0;"></div>
           <p><b>Head Teacher's Remark:</b> ${data.remark.head_teacher_remark || ''}</p>
+          <div style="border-bottom:1px solid #000; height:24px; margin:4px 0 16px 0;"></div>
           <p><b>Parent/Guardian's Remark:</b> ${data.remark.parent_remark || ''}</p>
         </div>`;
     }
