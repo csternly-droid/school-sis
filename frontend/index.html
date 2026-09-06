@@ -85,7 +85,7 @@
     <div id="tab-classes" class="tab">
       <h2>Classes</h2>
       <form id="classForm" class="row">
-                <input type="text" id="classGrade" placeholder="Grade (e.g. Baby Class, PP1, PP2, or 1-9)" required>
+        <input type="number" id="classGrade" placeholder="Grade (1-9)" min="1" max="9" required>
         <input type="text" id="classStreamName" placeholder="Class name e.g. Grade 4 Blue" required>
         <button type="submit">Add Class</button>
       </form>
@@ -111,7 +111,7 @@
           </select>
         </div>
         <div class="row">
-       <input type="text" id="learnerUpi" placeholder="ULI Number" required>   
+          <input type="text" id="learnerUpi" placeholder="UPI Number" required>
           <input type="text" id="learnerAdmission" placeholder="Admission Number" required>
         </div>
         <input type="text" id="learnerAssessment" placeholder="Assessment Number">
@@ -119,7 +119,7 @@
       </form>
       <div id="learnerMsg"></div>
       <table id="learnerTable">
-      <thead><tr><th>Name</th><th>Sex</th><th>ULI</th><th>Admission #</th><th></th></tr></thead> 
+        <thead><tr><th>Name</th><th>Sex</th><th>UPI</th><th>Admission #</th><th></th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -128,7 +128,7 @@
     <div id="tab-subjects" class="tab hidden">
       <h2>Subjects</h2>
       <form id="subjectForm" class="row">
-        <input type="text" id="subjectGrade" placeholder="Grade (e.g. Baby Class, PP1, PP2, or 1-9)" required>
+        <input type="number" id="subjectGrade" placeholder="Grade (1-9)" min="1" max="9" required>
         <input type="text" id="subjectName" placeholder="Subject name (type it)" required>
         <button type="submit">Add Subject</button>
       </form>
@@ -288,21 +288,17 @@
           <div style="flex:1;">
             <label>Term Opening Date</label>
             <input type="date" id="termOpenDate">
-            <div style="border-bottom:1px solid #000; height:20px; margin-top:4px;"></div>
           </div>
           <div style="flex:1;">
             <label>Term Closing Date</label>
             <input type="date" id="termCloseDate">
-            <div style="border-bottom:1px solid #000; height:20px; margin-top:4px;"></div>
           </div>
         </div>
         <h3>Remarks</h3>
         <label>Class Teacher's Remark</label>
         <textarea id="classTeacherRemark"></textarea>
-        <div style="border-bottom:1px solid #000; height:24px; margin:4px 0 16px 0;"></div>
         <label>Head Teacher's Remark</label>
         <textarea id="headTeacherRemark"></textarea>
-        <div style="border-bottom:1px solid #000; height:24px; margin:4px 0 16px 0;"></div>
         <label>Parent/Guardian's Remark</label>
         <textarea id="parentRemark"></textarea>
         <div class="no-print">
@@ -462,18 +458,18 @@ async function loadClasses() {
 function editClass(id) {
   const c = currentClasses.find(x => x.id === id);
   if (!c) return;
-  const grade = prompt('Grade (e.g. Baby Class, PP1, PP2, or 1-9):', c.grade);
+  const grade = prompt('Grade (1-9):', c.grade);
   if (grade === null) return;
   const stream_name = prompt('Class name:', c.stream_name);
   if (stream_name === null) return;
-  api(`/api/classes/${id}`, { method: 'PATCH', body: JSON.stringify({ grade: grade, stream_name }) })
+  api(`/api/classes/${id}`, { method: 'PATCH', body: JSON.stringify({ grade: Number(grade), stream_name }) })
     .then(loadClasses)
     .catch(err => alert(err.message));
 }
 
 document.getElementById('classForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const grade = document.getElementById('classGrade').value;
+  const grade = Number(document.getElementById('classGrade').value);
   const stream_name = document.getElementById('classStreamName').value;
   const msg = document.getElementById('classMsg');
   try {
@@ -518,7 +514,7 @@ function editLearner(id, classId) {
   if (name === null) return;
   const sex = prompt('Sex (M or F):', l.sex || '');
   if (sex === null) return;
-  const upi_number = prompt('ULI number:', l.upi_number);
+  const upi_number = prompt('UPI number:', l.upi_number);
   if (upi_number === null) return;
   const admission_number = prompt('Admission number:', l.admission_number);
   if (admission_number === null) return;
@@ -584,19 +580,19 @@ async function loadSubjects() {
 function editSubject(id) {
   const s = currentSubjects.find(x => x.id === id);
   if (!s) return;
-  const grade = document.getElementById('subjectGrade').value;
-  const name = document.getElementById('subjectName').value;
+  const grade = prompt('Grade (1-9):', s.grade);
+  if (grade === null) return;
+  const name = prompt('Subject name:', s.name);
+  if (name === null) return;
+  api(`/api/subjects/${id}`, { method: 'PATCH', body: JSON.stringify({ grade: Number(grade), name }) })
     .then(loadSubjects)
-    .catch(err => alert(err.message)
+    .catch(err => alert(err.message));
 }
 
 document.getElementById('subjectForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const grade = prompt('Grade (e.g. Baby Class, PP1, PP2, or 1-9):', s.grade);
-  if (grade === null) return;
-  const name = prompt('Subject name:', s.name);
-  if (name === null) return;
-  api(`/api/subjects/${id}`, { method: 'PATCH', body: JSON.stringify({ grade: grade, name }) })
+  const grade = Number(document.getElementById('subjectGrade').value);
+  const name = document.getElementById('subjectName').value;
   const msg = document.getElementById('subjectMsg');
   try {
     await api('/api/subjects', { method: 'POST', body: JSON.stringify({ grade, name }) });
@@ -1008,7 +1004,7 @@ async function loadReport() {
     document.getElementById('reportExamLine').textContent = repExam ? repExam.name : '';
     document.getElementById('reportLearnerName').textContent = data.learner.name;
     document.getElementById('reportLearnerMeta').textContent =
-      `Admission #: ${data.learner.admission_number} | Assessment #: ${data.learner.assessment_number || '-'} | Sex: ${data.learner.sex || '-'}`;
+      `Admission #: ${data.learner.admission_number} | UPI: ${data.learner.upi_number} | Sex: ${data.learner.sex || '-'}`;
 
     const subjBody = document.querySelector('#reportSubjectsTable tbody');
     subjBody.innerHTML = '';
@@ -1077,26 +1073,20 @@ async function generateAllClassReports() {
         subjectRows += `<tr><td>${m.subject_name}</td><td>${m.score}</td><td>${gradeLabel}</td><td>${m.comment || ''}</td></tr>`;
       });
       combinedHtml += `
-        <div class="report-page" style="padding:20px; border:1px solid #ddd; margin-bottom:16px;">
+        <div style="page-break-after:always; padding:20px; border:1px solid #ddd; margin-bottom:16px;">
           <h2 style="text-align:center;">${(schoolName || '').toUpperCase()}</h2>
           <h3 style="text-align:center;">${bulkCls ? bulkCls.stream_name + ' (Grade ' + bulkCls.grade + ')' : ''}</h3>
           <h3 style="text-align:center;">${bulkExam ? bulkExam.name : ''}</h3>
           <h2>${data.learner.name}</h2>
-          <p>Admission #: ${data.learner.admission_number} | Assessment #: ${data.learner.assessment_number || '-'} | Sex: ${data.learner.sex || '-'}</p>
+          <p>Admission #: ${data.learner.admission_number} | UPI: ${data.learner.upi_number} | Sex: ${data.learner.sex || '-'}</p>
           <table style="width:100%; border-collapse:collapse;">
             <thead><tr><th style="text-align:left;border-bottom:1px solid #ccc;">Subject</th><th style="text-align:left;border-bottom:1px solid #ccc;">Score</th><th style="text-align:left;border-bottom:1px solid #ccc;">Grade</th><th style="text-align:left;border-bottom:1px solid #ccc;">Comment</th></tr></thead>
             <tbody>${subjectRows}</tbody>
           </table>
           <p><b>Class Position:</b> ${data.position} out of ${data.totalInClass}</p>
           <p><b>Total Points:</b> ${data.totalPoints} | <b>Overall Grade:</b> ${overallLabel}</p>
-          <p><b>Term Opening Date:</b> ${data.remark.term_open_date || ''}</p>
-          <div style="border-bottom:1px solid #000; height:20px; margin:4px 0 12px 0;"></div>
-          <p><b>Term Closing Date:</b> ${data.remark.term_close_date || ''}</p>
-          <div style="border-bottom:1px solid #000; height:20px; margin:4px 0 12px 0;"></div>
           <p><b>Class Teacher's Remark:</b> ${data.remark.class_teacher_remark || ''}</p>
-          <div style="border-bottom:1px solid #000; height:24px; margin:4px 0 16px 0;"></div>
           <p><b>Head Teacher's Remark:</b> ${data.remark.head_teacher_remark || ''}</p>
-          <div style="border-bottom:1px solid #000; height:24px; margin:4px 0 16px 0;"></div>
           <p><b>Parent/Guardian's Remark:</b> ${data.remark.parent_remark || ''}</p>
         </div>`;
     }
@@ -1111,32 +1101,17 @@ async function generateAllClassReports() {
 async function downloadAllClassReports() {
   const container = document.getElementById('bulkReportContainer');
   const msg = document.getElementById('bulkReportMsg');
-  const reportPages = container.querySelectorAll('.report-page');
-  if (!reportPages.length) {
+  if (!container.innerHTML.trim()) {
     msg.innerHTML = '<div class="error">Click "Generate All Reports for This Class" first.</div>';
     return;
   }
-  msg.innerHTML = 'Building PDF, please wait — this can take a while for a large class...';
-  try {
-    const opt = {
-      margin: 10,
-      html2canvas: { scale: 2, useCORS: true },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
-    // Render each learner's report as its own page instead of one giant
-    // canvas for the whole class - a single huge canvas silently comes
-    // out blank once it exceeds the browser's max canvas size.
-    let worker = html2pdf().set(opt).from(reportPages[0]).toPdf();
-    for (let i = 1; i < reportPages.length; i++) {
-      worker = worker
-        .get('pdf').then(pdf => { pdf.addPage(); })
-        .from(reportPages[i]).toContainer().toCanvas().toPdf();
-    }
-    await worker.save('class_reports.pdf');
-    msg.innerHTML = '<div class="success">Downloaded.</div>';
-  } catch (err) {
-    msg.innerHTML = `<div class="error">${err.message || 'Failed to generate the PDF - try again, or a smaller class if it keeps failing.'}</div>`;
-  }
+  html2pdf().from(container).set({
+    margin: 10,
+    filename: 'class_reports.pdf',
+    html2canvas: { scale: 2 },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  }).save();
+  msg.innerHTML = '<div class="success">Downloaded.</div>';
 }
 
 // ====== SCHOOL NAME HEADER ======
