@@ -85,7 +85,7 @@
     <div id="tab-classes" class="tab">
       <h2>Classes</h2>
       <form id="classForm" class="row">
-          <input type="text" id="classGrade" placeholder="Grade (e.g. Baby Class, PP1, PP2, or 1-9)" required>
+        <input type="text" id="classGrade" placeholder="Grade (e.g. Baby Class, PP1, PP2, or 1-9)" required>
         <input type="text" id="classStreamName" placeholder="Class name e.g. Grade 4 Blue" required>
         <button type="submit">Add Class</button>
       </form>
@@ -110,7 +110,8 @@
             <option value="F">Female</option>
           </select>
         </div>
-       <input type="text" id="learnerUpi" placeholder="ULI Number" required>
+        <div class="row">
+          <input type="text" id="learnerUpi" placeholder="ULI Number" required>
           <input type="text" id="learnerAdmission" placeholder="Admission Number" required>
         </div>
         <input type="text" id="learnerAssessment" placeholder="Assessment Number">
@@ -118,7 +119,7 @@
       </form>
       <div id="learnerMsg"></div>
       <table id="learnerTable">
-               <thead><tr><th>Name</th><th>Sex</th><th>ULI</th><th>Admission #</th><th></th></tr></thead>
+        <thead><tr><th>Name</th><th>Sex</th><th>ULI</th><th>Admission #</th><th></th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -127,7 +128,7 @@
     <div id="tab-subjects" class="tab hidden">
       <h2>Subjects</h2>
       <form id="subjectForm" class="row">
-                <input type="text" id="subjectGrade" placeholder="Grade (e.g. Baby Class, PP1, PP2, or 1-9)" required>
+        <input type="text" id="subjectGrade" placeholder="Grade (e.g. Baby Class, PP1, PP2, or 1-9)" required>
         <input type="text" id="subjectName" placeholder="Subject name (type it)" required>
         <button type="submit">Add Subject</button>
       </form>
@@ -304,10 +305,6 @@
         <div style="border-bottom:1px solid #000; height:24px; margin:4px 0 16px 0;"></div>
         <label>Parent/Guardian's Remark</label>
         <textarea id="parentRemark"></textarea>
-        <textarea id="headTeacherRemark"></textarea>
-        <div style="border-bottom:1px solid #000; height:24px; margin:4px 0 16px 0;"></div>
-        <label>Parent/Guardian's Remark</label>
-        <textarea id="parentRemark"></textarea>
         <div class="no-print">
           <button onclick="saveRemarks()">Save Remarks</button>
           <button onclick="window.print()">Print Report</button>
@@ -438,6 +435,11 @@ function downloadArea(id, filename) {
   }).save();
 }
 
+function formatGrade(g) {
+  if (g === 'Baby Class' || g === 'PP1' || g === 'PP2') return g;
+  return 'Grade ' + g;
+}
+
 // ====== CLASSES ======
 let currentClasses = [];
 async function loadClasses() {
@@ -449,9 +451,9 @@ async function loadClasses() {
     const select = document.getElementById('learnerClassSelect');
     select.innerHTML = '';
     classes.forEach(c => {
-      tbody.innerHTML += `<tr><td>${c.grade}</td><td>${c.stream_name}</td>
+      tbody.innerHTML += `<tr><td>${formatGrade(c.grade)}</td><td>${c.stream_name}</td>
         <td><button onclick="editClass(${c.id})">Edit</button></td></tr>`;
-      select.innerHTML += `<option value="${c.id}">${c.stream_name} (Grade ${c.grade})</option>`;
+      select.innerHTML += `<option value="${c.id}">${c.stream_name} (${formatGrade(c.grade)})</option>`;
     });
     if (classes.length) loadLearners(select.value);
     populateAssignmentSelects();
@@ -476,7 +478,7 @@ function editClass(id) {
 
 document.getElementById('classForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const grade = Number(document.getElementById('classGrade').value);
+  const grade = document.getElementById('classGrade').value;
   const stream_name = document.getElementById('classStreamName').value;
   const msg = document.getElementById('classMsg');
   try {
@@ -521,7 +523,7 @@ function editLearner(id, classId) {
   if (name === null) return;
   const sex = prompt('Sex (M or F):', l.sex || '');
   if (sex === null) return;
-    const upi_number = prompt('ULI number:', l.upi_number);
+  const upi_number = prompt('ULI number:', l.upi_number);
   if (upi_number === null) return;
   const admission_number = prompt('Admission number:', l.admission_number);
   if (admission_number === null) return;
@@ -574,7 +576,7 @@ async function loadSubjects() {
     const tbody = document.querySelector('#subjectTable tbody');
     tbody.innerHTML = '';
     subjects.forEach(s => {
-      tbody.innerHTML += `<tr><td>${s.grade}</td><td>${s.name}</td>
+      tbody.innerHTML += `<tr><td>${formatGrade(s.grade)}</td><td>${s.name}</td>
         <td><button onclick="editSubject(${s.id})">Edit</button>
         <button class="danger" onclick="deleteSubject(${s.id})">Delete</button></td></tr>`;
     });
@@ -598,7 +600,7 @@ function editSubject(id) {
 
 document.getElementById('subjectForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const grade = Number(document.getElementById('subjectGrade').value);
+  const grade = document.getElementById('subjectGrade').value;
   const name = document.getElementById('subjectName').value;
   const msg = document.getElementById('subjectMsg');
   try {
@@ -671,7 +673,7 @@ function populateAssignmentSelects() {
   if (!teacherSelect) return;
   teacherSelect.innerHTML = currentTeachers.map(t => `<option value="${t.id}">${t.full_name} (${t.serial_number})</option>`).join('');
   const classSelect = document.getElementById('assignClass');
-  classSelect.innerHTML = currentClasses.map(c => `<option value="${c.id}" data-grade="${c.grade}">${c.stream_name} (Grade ${c.grade})</option>`).join('');
+  classSelect.innerHTML = currentClasses.map(c => `<option value="${c.id}" data-grade="${c.grade}">${c.stream_name} (${formatGrade(c.grade)})</option>`).join('');
   updateAssignSubjects();
 }
 
@@ -692,7 +694,7 @@ async function loadAssignments() {
     const tbody = document.querySelector('#assignmentTable tbody');
     tbody.innerHTML = '';
     rows.forEach(a => {
-      tbody.innerHTML += `<tr><td>${a.teacher_name}</td><td>${a.subject_name}</td><td>${a.stream_name} (Grade ${a.grade})</td>
+      tbody.innerHTML += `<tr><td>${a.teacher_name}</td><td>${a.subject_name}</td><td>${a.stream_name} (${formatGrade(a.grade)})</td>
         <td><button class="danger" onclick="deleteAssignment(${a.id})">Remove</button></td></tr>`;
     });
   } catch (err) {
@@ -815,7 +817,7 @@ function populateMarksheetSelects() {
   const classSelect = document.getElementById('marksheetClassSelect');
   const examSelect = document.getElementById('marksheetExamSelect');
   if (!classSelect || !examSelect) return;
-  classSelect.innerHTML = currentClasses.map(c => `<option value="${c.id}">${c.stream_name} (Grade ${c.grade})</option>`).join('');
+  classSelect.innerHTML = currentClasses.map(c => `<option value="${c.id}">${c.stream_name} (${formatGrade(c.grade)})</option>`).join('');
   examSelect.innerHTML = currentExams.map(ex => `<option value="${ex.id}">${ex.name}</option>`).join('');
 }
 
@@ -827,7 +829,7 @@ async function loadMarksheet() {
   if (!classId || !examId) { msg.innerHTML = '<div class="error">Add a class and exam session first.</div>'; return; }
   try {
     const data = await api(`/api/marksheet/${classId}/${examId}`);
-    document.getElementById('marksheetClassLine').textContent = `${data.class.stream_name} (Grade ${data.class.grade})`;
+    document.getElementById('marksheetClassLine').textContent = `${data.class.stream_name} (${formatGrade(data.class.grade)})`;
     const msExam = currentExams.find(ex => ex.id == examId);
     document.getElementById('marksheetExamLine').textContent = msExam ? msExam.name : '';
     let html = '<table><thead><tr><th>Name</th><th>Admission #</th>';
@@ -867,7 +869,7 @@ function populateAnalysisSelect() {
   const classSelect = document.getElementById('analysisClassSelect');
   if (!examSelect || !classSelect) return;
   examSelect.innerHTML = currentExams.map(ex => `<option value="${ex.id}">${ex.name}</option>`).join('');
-  classSelect.innerHTML = currentClasses.map(c => `<option value="${c.id}">${c.stream_name} (Grade ${c.grade})</option>`).join('');
+  classSelect.innerHTML = currentClasses.map(c => `<option value="${c.id}">${c.stream_name} (${formatGrade(c.grade)})</option>`).join('');
 }
 
 async function loadAnalysis() {
@@ -877,7 +879,7 @@ async function loadAnalysis() {
   if (!classId || !examId) { msg.innerHTML = '<div class="error">Add a class and exam session first.</div>'; return; }
   try {
     const data = await api(`/api/analysis/class/${classId}/${examId}`);
-    document.getElementById('analysisClassLine').textContent = `${data.class.stream_name} (Grade ${data.class.grade})`;
+    document.getElementById('analysisClassLine').textContent = `${data.class.stream_name} (${formatGrade(data.class.grade)})`;
     const anExam = currentExams.find(ex => ex.id == examId);
     document.getElementById('analysisExamLine').textContent = anExam ? anExam.name : '';
 
@@ -941,7 +943,7 @@ async function loadAnalysis() {
 function populateReportClassSelect() {
   const classSelect = document.getElementById('reportClassSelect');
   if (!classSelect) return;
-  classSelect.innerHTML = currentClasses.map(c => `<option value="${c.id}">${c.stream_name} (Grade ${c.grade})</option>`).join('');
+  classSelect.innerHTML = currentClasses.map(c => `<option value="${c.id}">${c.stream_name} (${formatGrade(c.grade)})</option>`).join('');
   updateReportLearnerSelect();
 }
 
@@ -1006,11 +1008,11 @@ async function loadReport() {
     currentReportExamId = examId;
 
     const reportCls = currentClasses.find(c => c.id === data.learner.class_id);
-    document.getElementById('reportClassLine').textContent = reportCls ? `${reportCls.stream_name} (Grade ${reportCls.grade})` : '';
+    document.getElementById('reportClassLine').textContent = reportCls ? `${reportCls.stream_name} (${formatGrade(reportCls.grade)})` : '';
     const repExam = currentExams.find(ex => ex.id == examId);
     document.getElementById('reportExamLine').textContent = repExam ? repExam.name : '';
     document.getElementById('reportLearnerName').textContent = data.learner.name;
-      document.getElementById('reportLearnerMeta').textContent =
+    document.getElementById('reportLearnerMeta').textContent =
       `Admission #: ${data.learner.admission_number} | Assessment #: ${data.learner.assessment_number || '-'} | Sex: ${data.learner.sex || '-'}`;
 
     const subjBody = document.querySelector('#reportSubjectsTable tbody');
@@ -1082,15 +1084,15 @@ async function generateAllClassReports() {
       combinedHtml += `
         <div style="page-break-after:always; padding:20px; border:1px solid #ddd; margin-bottom:16px;">
           <h2 style="text-align:center;">${(schoolName || '').toUpperCase()}</h2>
-          <h3 style="text-align:center;">${bulkCls ? bulkCls.stream_name + ' (Grade ' + bulkCls.grade + ')' : ''}</h3>
+          <h3 style="text-align:center;">${bulkCls ? bulkCls.stream_name + ' (' + formatGrade(bulkCls.grade) + ')' : ''}</h3>
           <h3 style="text-align:center;">${bulkExam ? bulkExam.name : ''}</h3>
           <h2>${data.learner.name}</h2>
-               <p>Admission #: ${data.learner.admission_number} | Assessment #: ${data.learner.assessment_number || '-'} | Sex: ${data.learner.sex || '-'}</p>
+          <p>Admission #: ${data.learner.admission_number} | Assessment #: ${data.learner.assessment_number || '-'} | Sex: ${data.learner.sex || '-'}</p>
           <table style="width:100%; border-collapse:collapse;">
             <thead><tr><th style="text-align:left;border-bottom:1px solid #ccc;">Subject</th><th style="text-align:left;border-bottom:1px solid #ccc;">Score</th><th style="text-align:left;border-bottom:1px solid #ccc;">Grade</th><th style="text-align:left;border-bottom:1px solid #ccc;">Comment</th></tr></thead>
             <tbody>${subjectRows}</tbody>
           </table>
-             <p><b>Class Position:</b> ${data.position} out of ${data.totalInClass}</p>
+          <p><b>Class Position:</b> ${data.position} out of ${data.totalInClass}</p>
           <p><b>Total Points:</b> ${data.totalPoints} | <b>Overall Grade:</b> ${overallLabel}</p>
           <p><b>Term Opening Date:</b> ${data.remark.term_open_date || ''}</p>
           <div style="border-bottom:1px solid #000; height:20px; margin:4px 0 12px 0;"></div>
