@@ -85,7 +85,7 @@
     <div id="tab-classes" class="tab">
       <h2>Classes</h2>
       <form id="classForm" class="row">
-        <input type="number" id="classGrade" placeholder="Grade (1-9)" min="1" max="9" required>
+                <input type="text" id="classGrade" placeholder="Grade (e.g. Baby Class, PP1, PP2, or 1-9)" required>
         <input type="text" id="classStreamName" placeholder="Class name e.g. Grade 4 Blue" required>
         <button type="submit">Add Class</button>
       </form>
@@ -128,7 +128,7 @@
     <div id="tab-subjects" class="tab hidden">
       <h2>Subjects</h2>
       <form id="subjectForm" class="row">
-        <input type="number" id="subjectGrade" placeholder="Grade (1-9)" min="1" max="9" required>
+        <input type="text" id="subjectGrade" placeholder="Grade (e.g. Baby Class, PP1, PP2, or 1-9)" required>
         <input type="text" id="subjectName" placeholder="Subject name (type it)" required>
         <button type="submit">Add Subject</button>
       </form>
@@ -462,18 +462,18 @@ async function loadClasses() {
 function editClass(id) {
   const c = currentClasses.find(x => x.id === id);
   if (!c) return;
-  const grade = prompt('Grade (1-9):', c.grade);
+  const grade = prompt('Grade (e.g. Baby Class, PP1, PP2, or 1-9):', c.grade);
   if (grade === null) return;
   const stream_name = prompt('Class name:', c.stream_name);
   if (stream_name === null) return;
-  api(`/api/classes/${id}`, { method: 'PATCH', body: JSON.stringify({ grade: Number(grade), stream_name }) })
+  api(`/api/classes/${id}`, { method: 'PATCH', body: JSON.stringify({ grade: grade, stream_name }) })
     .then(loadClasses)
     .catch(err => alert(err.message));
 }
 
 document.getElementById('classForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const grade = Number(document.getElementById('classGrade').value);
+  const grade = document.getElementById('classGrade').value;
   const stream_name = document.getElementById('classStreamName').value;
   const msg = document.getElementById('classMsg');
   try {
@@ -584,19 +584,19 @@ async function loadSubjects() {
 function editSubject(id) {
   const s = currentSubjects.find(x => x.id === id);
   if (!s) return;
-  const grade = prompt('Grade (1-9):', s.grade);
-  if (grade === null) return;
-  const name = prompt('Subject name:', s.name);
-  if (name === null) return;
-  api(`/api/subjects/${id}`, { method: 'PATCH', body: JSON.stringify({ grade: Number(grade), name }) })
+  const grade = document.getElementById('subjectGrade').value;
+  const name = document.getElementById('subjectName').value;
     .then(loadSubjects)
     .catch(err => alert(err.message));
 }
 
 document.getElementById('subjectForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const grade = Number(document.getElementById('subjectGrade').value);
-  const name = document.getElementById('subjectName').value;
+  const grade = prompt('Grade (e.g. Baby Class, PP1, PP2, or 1-9):', s.grade);
+  if (grade === null) return;
+  const name = prompt('Subject name:', s.name);
+  if (name === null) return;
+  api(`/api/subjects/${id}`, { method: 'PATCH', body: JSON.stringify({ grade: grade, name }) })
   const msg = document.getElementById('subjectMsg');
   try {
     await api('/api/subjects', { method: 'POST', body: JSON.stringify({ grade, name }) });
