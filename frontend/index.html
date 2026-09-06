@@ -110,8 +110,7 @@
             <option value="F">Female</option>
           </select>
         </div>
-        <div class="row">
-          <input type="text" id="learnerUpi" placeholder="UPI Number" required>
+       <input type="text" id="learnerUpi" placeholder="ULI Number" required>
           <input type="text" id="learnerAdmission" placeholder="Admission Number" required>
         </div>
         <input type="text" id="learnerAssessment" placeholder="Assessment Number">
@@ -119,7 +118,7 @@
       </form>
       <div id="learnerMsg"></div>
       <table id="learnerTable">
-        <thead><tr><th>Name</th><th>Sex</th><th>UPI</th><th>Admission #</th><th></th></tr></thead>
+               <thead><tr><th>Name</th><th>Sex</th><th>ULI</th><th>Admission #</th><th></th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -514,7 +513,7 @@ function editLearner(id, classId) {
   if (name === null) return;
   const sex = prompt('Sex (M or F):', l.sex || '');
   if (sex === null) return;
-  const upi_number = prompt('UPI number:', l.upi_number);
+    const upi_number = prompt('ULI number:', l.upi_number);
   if (upi_number === null) return;
   const admission_number = prompt('Admission number:', l.admission_number);
   if (admission_number === null) return;
@@ -1003,8 +1002,8 @@ async function loadReport() {
     const repExam = currentExams.find(ex => ex.id == examId);
     document.getElementById('reportExamLine').textContent = repExam ? repExam.name : '';
     document.getElementById('reportLearnerName').textContent = data.learner.name;
-    document.getElementById('reportLearnerMeta').textContent =
-      `Admission #: ${data.learner.admission_number} | UPI: ${data.learner.upi_number} | Sex: ${data.learner.sex || '-'}`;
+      document.getElementById('reportLearnerMeta').textContent =
+      `Admission #: ${data.learner.admission_number} | Assessment #: ${data.learner.assessment_number || '-'} | Sex: ${data.learner.sex || '-'}`;
 
     const subjBody = document.querySelector('#reportSubjectsTable tbody');
     subjBody.innerHTML = '';
@@ -1078,7 +1077,7 @@ async function generateAllClassReports() {
           <h3 style="text-align:center;">${bulkCls ? bulkCls.stream_name + ' (Grade ' + bulkCls.grade + ')' : ''}</h3>
           <h3 style="text-align:center;">${bulkExam ? bulkExam.name : ''}</h3>
           <h2>${data.learner.name}</h2>
-          <p>Admission #: ${data.learner.admission_number} | UPI: ${data.learner.upi_number} | Sex: ${data.learner.sex || '-'}</p>
+               <p>Admission #: ${data.learner.admission_number} | Assessment #: ${data.learner.assessment_number || '-'} | Sex: ${data.learner.sex || '-'}</p>
           <table style="width:100%; border-collapse:collapse;">
             <thead><tr><th style="text-align:left;border-bottom:1px solid #ccc;">Subject</th><th style="text-align:left;border-bottom:1px solid #ccc;">Score</th><th style="text-align:left;border-bottom:1px solid #ccc;">Grade</th><th style="text-align:left;border-bottom:1px solid #ccc;">Comment</th></tr></thead>
             <tbody>${subjectRows}</tbody>
