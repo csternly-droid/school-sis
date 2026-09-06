@@ -587,7 +587,7 @@ function editSubject(id) {
   const grade = document.getElementById('subjectGrade').value;
   const name = document.getElementById('subjectName').value;
     .then(loadSubjects)
-    .catch(err => alert(err.message));
+    .catch(err => alert(err.message)
 }
 
 document.getElementById('subjectForm').addEventListener('submit', async (e) => {
