@@ -390,6 +390,29 @@ app.delete('/api/grading-bands/:id', requireRole('admin'), wrap(async (req, res)
   res.json({ ok: true });
 }));
 
+// ---------- REMARK BANDS ----------
+app.post('/api/remark-bands', requireRole('admin'), wrap(async (req, res) => {
+  const { min_average, max_average, class_teacher_remark, head_teacher_remark } = req.body;
+  const { rows } = await pool.query(
+    'INSERT INTO remark_bands (school_id, min_average, max_average, class_teacher_remark, head_teacher_remark) VALUES ($1,$2,$3,$4,$5) RETURNING id',
+    [req.user.school_id, min_average, max_average, class_teacher_remark, head_teacher_remark]
+  );
+  res.json({ id: rows[0].id });
+}));
+
+app.get('/api/remark-bands', requireRole('admin', 'teacher'), wrap(async (req, res) => {
+  const { rows } = await pool.query(
+    'SELECT * FROM remark_bands WHERE school_id=$1 ORDER BY min_average DESC',
+    [req.user.school_id]
+  );
+  res.json(rows);
+}));
+
+app.delete('/api/remark-bands/:id', requireRole('admin'), wrap(async (req, res) => {
+  await pool.query('DELETE FROM remark_bands WHERE id=$1 AND school_id=$2', [req.params.id, req.user.school_id]);
+  res.json({ ok: true });
+}));
+
 async function scoreToBand(schoolId, score) {
   const { rows } = await pool.query('SELECT * FROM grading_bands WHERE school_id=$1', [schoolId]);
   return rows.find(b => score >= b.min_score && score <= b.max_score) || null;

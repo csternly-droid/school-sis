@@ -82,7 +82,6 @@
       <button data-tab="assignments">Assignments</button>
       <button data-tab="exams">Exams</button>
       <button data-tab="grading">Grading</button>
-      <button data-tab="remarks">Remarks</button>
       <button data-tab="marksheet">Mark Sheet</button>
       <button data-tab="analysis">Analysis</button>
       <button data-tab="report">Report</button>
@@ -207,28 +206,6 @@
       <div id="gradingMsg"></div>
       <table id="gradingTable">
         <thead><tr><th>Range</th><th>Letter</th><th>Points</th><th></th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-
-    <!-- REMARKS TAB -->
-    <div id="tab-remarks" class="tab hidden">
-      <h2>Automatic Remarks</h2>
-      <p>Set average-score ranges (e.g. 80-100) with the wording to use for that range, the same way the grading system works. When a report is generated, the Class Teacher's and Head Teacher's remarks fill in automatically based on the learner's average score for that exam — you can still edit the wording for any individual learner before saving.</p>
-      <form id="remarkForm">
-        <div class="row">
-          <input type="number" id="remarkMin" placeholder="Min average" required>
-          <input type="number" id="remarkMax" placeholder="Max average" required>
-        </div>
-        <label>Class Teacher's Remark for this range</label>
-        <textarea id="remarkClassText" required></textarea>
-        <label>Head Teacher's Remark for this range</label>
-        <textarea id="remarkHeadText" required></textarea>
-        <button type="submit">Add Remark Range</button>
-      </form>
-      <div id="remarkMsg"></div>
-      <table id="remarkTable">
-        <thead><tr><th>Average Range</th><th>Class Teacher's Remark</th><th>Head Teacher's Remark</th><th></th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -449,7 +426,6 @@ function showDashboard() {
   loadAssignments();
   loadExams();
   loadGradingBands();
-  loadRemarkBands();
   loadSchoolInfo();
   if (sessionCheckInterval) clearInterval(sessionCheckInterval);
   sessionCheckInterval = setInterval(() => { api('/api/session-check').catch(() => {}); }, 20000);
@@ -863,66 +839,6 @@ async function deleteGradingBand(id) {
   }
 }
 
-// ====== REMARK BANDS (automatic remarks based on average) ======
-let currentRemarkBands = [];
-
-async function loadRemarkBands() {
-  try {
-    const bands = await api('/api/remark-bands');
-    currentRemarkBands = bands;
-    const tbody = document.querySelector('#remarkTable tbody');
-    tbody.innerHTML = '';
-    bands.forEach(b => {
-      tbody.innerHTML += `<tr><td>${b.min_average} - ${b.max_average}</td><td>${b.class_teacher_remark}</td><td>${b.head_teacher_remark}</td>
-        <td><button class="danger" onclick="deleteRemarkBand(${b.id})">Delete</button></td></tr>`;
-    });
-  } catch (err) {
-    document.getElementById('remarkMsg').innerHTML = `<div class="error">${err.message}</div>`;
-  }
-}
-
-document.getElementById('remarkForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const min_average = Number(document.getElementById('remarkMin').value);
-  const max_average = Number(document.getElementById('remarkMax').value);
-  const class_teacher_remark = document.getElementById('remarkClassText').value;
-  const head_teacher_remark = document.getElementById('remarkHeadText').value;
-  const msg = document.getElementById('remarkMsg');
-  try {
-    await api('/api/remark-bands', { method: 'POST', body: JSON.stringify({ min_average, max_average, class_teacher_remark, head_teacher_remark }) });
-    msg.innerHTML = '<div class="success">Remark range added.</div>';
-    e.target.reset();
-    loadRemarkBands();
-  } catch (err) {
-    msg.innerHTML = `<div class="error">${err.message}</div>`;
-  }
-});
-
-async function deleteRemarkBand(id) {
-  if (!confirm('Remove this remark range?')) return;
-  try {
-    await api(`/api/remark-bands/${id}`, { method: 'DELETE' });
-    loadRemarkBands();
-  } catch (err) {
-    alert(err.message);
-  }
-}
-
-// Find the remark band that matches a given average score
-function findRemarkBand(average) {
-  if (average === null || average === undefined) return null;
-  return currentRemarkBands.find(b => average >= Number(b.min_average) && average <= Number(b.max_average)) || null;
-}
-
-// Average of a learner's scored subjects for one exam session
-function computeAverage(marks) {
-  if (!marks || !marks.length) return null;
-  const scored = marks.filter(m => typeof m.score === 'number');
-  if (!scored.length) return null;
-  const sum = scored.reduce((acc, m) => acc + m.score, 0);
-  return sum / scored.length;
-}
-
 // ====== MARK SHEET ======
 function populateMarksheetSelects() {
   const classSelect = document.getElementById('marksheetClassSelect');
@@ -1141,14 +1057,8 @@ async function loadReport() {
 
     document.getElementById('reportGraph').innerHTML = buildLineGraph(data.history);
 
-    // Auto-fill Class Teacher's / Head Teacher's remarks from the matching remark band,
-    // based on this learner's average for this exam — unless a remark was already saved.
-    const average = computeAverage(data.marks);
-    const band = findRemarkBand(average);
-    document.getElementById('classTeacherRemark').value =
-      data.remark.class_teacher_remark || (band ? band.class_teacher_remark : '');
-    document.getElementById('headTeacherRemark').value =
-      data.remark.head_teacher_remark || (band ? band.head_teacher_remark : '');
+    document.getElementById('classTeacherRemark').value = data.remark.class_teacher_remark || '';
+    document.getElementById('headTeacherRemark').value = data.remark.head_teacher_remark || '';
     document.getElementById('parentRemark').value = data.remark.parent_remark || '';
     document.getElementById('termOpenDate').value = data.remark.term_open_date || '';
     document.getElementById('termCloseDate').value = data.remark.term_close_date || '';
@@ -1199,10 +1109,8 @@ async function generateAllClassReports() {
         subjectRows += `<tr><td>${m.subject_name}</td><td>${m.score}</td><td>${gradeLabel}</td><td>${m.comment || ''}</td></tr>`;
       });
 
-      const bulkAverage = computeAverage(data.marks);
-      const bulkBand = findRemarkBand(bulkAverage);
-      const bulkClassRemark = data.remark.class_teacher_remark || (bulkBand ? bulkBand.class_teacher_remark : '');
-      const bulkHeadRemark = data.remark.head_teacher_remark || (bulkBand ? bulkBand.head_teacher_remark : '');
+      const bulkClassRemark = data.remark.class_teacher_remark || '';
+      const bulkHeadRemark = data.remark.head_teacher_remark || '';
       const bulkParentRemark = data.remark.parent_remark || '';
 
       combinedHtml += `
