@@ -83,6 +83,7 @@
       <thead><tr><th>Name</th><th>Admission #</th><th>Score</th><th>Comment</th></tr></thead>
       <tbody></tbody>
     </table>
+    <p id="subjectMeanDisplay" style="font-weight:bold; margin-top:12px;"></p>
   </div>
 </div>
 
@@ -243,10 +244,24 @@ async function loadMarksEntry() {
       </tr>`;
     });
     document.getElementById('marksCard').style.display = 'block';
+    updateSubjectMean();
     msg.innerHTML = '';
   } catch (err) {
     msg.innerHTML = `<div class="error">${err.message}</div>`;
   }
+}
+
+function updateSubjectMean() {
+  const inputs = document.querySelectorAll('#marksTable tbody input[id^="score-"]');
+  const values = Array.from(inputs).map(i => i.value);
+  const validScores = values.filter(v => v !== '' && !isNaN(Number(v))).map(Number);
+  const display = document.getElementById('subjectMeanDisplay');
+  if (!validScores.length) {
+    display.textContent = 'No marks entered yet.';
+    return;
+  }
+  const mean = validScores.reduce((a, b) => a + b, 0) / validScores.length;
+  display.textContent = `Subject Mean (so far): ${mean.toFixed(1)} (${validScores.length} of ${values.length} learners marked)`;
 }
 
 async function submitMarkRow(learnerId, subjectId, examId) {
@@ -266,7 +281,8 @@ async function submitMarkRow(learnerId, subjectId, examId) {
         comment: comment
       })
     });
-    document.getElementById('marksMsg').innerHTML = '<div class="success">Saved.</div>';
+     document.getElementById('marksMsg').innerHTML = '<div class="success">Saved.</div>';
+    updateSubjectMean();
   } catch (err) {
     document.getElementById('marksMsg').innerHTML = `<div class="error">${err.message}</div>`;
   }
