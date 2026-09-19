@@ -70,7 +70,7 @@
 
   <div class="card">
     <h2>Enter Marks</h2>
-    <p>Choose your subject/class, then an open exam session.</p>
+        <p>Choose your subject/class, then an open assessment session.</p>
     <select id="assignmentSelect"></select>
     <select id="examSelect"></select>
     <button onclick="loadMarksEntry()">Load Learners</button>
@@ -219,8 +219,8 @@ async function loadExamSessions() {
 async function loadMarksEntry() {
   const idx = document.getElementById('assignmentSelect').value;
   const examId = document.getElementById('examSelect').value;
-  const msg = document.getElementById('marksMsg');
-  if (idx === '' || !examId) { msg.innerHTML = '<div class="error">Choose a subject/class and exam session.</div>'; return; }
+  const msg = document.getElementById('marksMsg');session.</div>  if (idx === '' || !examId) { msg.innerHTML = '<div class="error">Choose a subject/class and assessment session.</div>'; return; }
+
   const assignment = myAssignments[idx];
   try {
     const learners = await api(`/api/classes/${assignment.class_id}/list`);
