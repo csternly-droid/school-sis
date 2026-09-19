@@ -6,6 +6,7 @@
 <link rel="manifest" href="manifest-teacher.json">
 <meta name="theme-color" content="#1565C0">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SCO">
@@ -70,7 +71,7 @@
 
   <div class="card">
     <h2>Enter Marks</h2>
-        <p>Choose your subject/class, then an open assessment session.</p>
+    <p>Choose your subject/class, then an open assessment session.</p>
     <select id="assignmentSelect"></select>
     <select id="examSelect"></select>
     <button onclick="loadMarksEntry()">Load Learners</button>
@@ -158,7 +159,7 @@ function showDashboard() {
   document.getElementById('dashboard').classList.remove('hidden');
   loadAssignments();
   loadExamSessions();
-if (sessionCheckInterval) clearInterval(sessionCheckInterval);
+  if (sessionCheckInterval) clearInterval(sessionCheckInterval);
   sessionCheckInterval = setInterval(() => { api('/api/session-check').catch(() => {}); }, 20000);
   resetInactivityTimer();
 }
@@ -219,7 +220,11 @@ async function loadExamSessions() {
 async function loadMarksEntry() {
   const idx = document.getElementById('assignmentSelect').value;
   const examId = document.getElementById('examSelect').value;
-  const msg = document.getElementById('marksMsg');session.</div>  if (idx === '' || !examId) { msg.innerHTML = '<div class="error">Choose a subject/class and assessment session.</div>'; return; }
+  const msg = document.getElementById('marksMsg');
+  if (idx === '' || !examId) {
+    msg.innerHTML = '<div class="error">Choose a subject/class and assessment session.</div>';
+    return;
+  }
 
   const assignment = myAssignments[idx];
   try {
@@ -281,7 +286,7 @@ async function submitMarkRow(learnerId, subjectId, examId) {
         comment: comment
       })
     });
-     document.getElementById('marksMsg').innerHTML = '<div class="success">Saved.</div>';
+    document.getElementById('marksMsg').innerHTML = '<div class="success">Saved.</div>';
     updateSubjectMean();
   } catch (err) {
     document.getElementById('marksMsg').innerHTML = `<div class="error">${err.message}</div>`;
