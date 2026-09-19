@@ -80,7 +80,7 @@
       <button data-tab="subjects">Subjects</button>
       <button data-tab="teachers">Teachers</button>
       <button data-tab="assignments">Assignments</button>
-      <button data-tab="exams">Assessments</button>
+      <button data-tab="exams">Exams</button>
       <button data-tab="grading">Grading</button>
       <button data-tab="marksheet">Mark Sheet</button>
       <button data-tab="analysis">Analysis</button>
@@ -178,12 +178,12 @@
     </div>
 
     <!-- EXAMS TAB -->
-       <div id="tab-exams" class="tab hidden">
-      <h2>Assessment Sessions</h2>
-      <p>Open an assessment session so teachers can enter marks. Close it when done — only you can edit marks after that.</p>
+    <div id="tab-exams" class="tab hidden">
+      <h2>Exam Sessions</h2>
+      <p>Open an exam session so teachers can enter marks. Close it when done — only you can edit marks after that.</p>
       <form id="examForm" class="row">
         <input type="text" id="examName" placeholder="e.g. Term 2 Mid-Term 2026" required>
-        <button type="submit">Create Assessment Session</button>
+        <button type="submit">Create Exam Session</button>
       </form>
       <div id="examMsg"></div>
       <table id="examTable">
@@ -245,6 +245,11 @@
         <h3 id="analysisClassLine" style="text-align:center;"></h3>
         <h3 id="analysisExamLine" style="text-align:center;"></h3>
         <div id="classTrendBox"></div>
+        <h3>Grade Distribution (by learner average)</h3>
+        <table id="gradeDistributionTable">
+          <thead><tr><th>Grade</th><th>Score Range</th><th>Points</th><th>Number of Students</th></tr></thead>
+          <tbody></tbody>
+        </table>
         <h3>Learner Ranking (best to worst), with each subject shown</h3>
         <div id="learnerRankContainer" style="overflow-x:auto;"></div>
         <h3>Most Improved Learners (vs previous exam)</h3>
@@ -331,6 +336,8 @@
             <div class="signatureLabel">Parent/Guardian's Signature</div>
           </div>
         </div>
+
+        <div id="reportKeyBox"></div>
 
         <div class="no-print">
           <button onclick="saveRemarks()">Save Remarks</button>
@@ -798,9 +805,11 @@ async function toggleExam(id, newOpen) {
 }
 
 // ====== GRADING BANDS ======
+let currentGradingBands = [];
 async function loadGradingBands() {
   try {
     const bands = await api('/api/grading-bands');
+    currentGradingBands = bands;
     const tbody = document.querySelector('#gradingTable tbody');
     tbody.innerHTML = '';
     bands.forEach(b => {
@@ -810,6 +819,36 @@ async function loadGradingBands() {
   } catch (err) {
     document.getElementById('gradingMsg').innerHTML = `<div class="error">${err.message}</div>`;
   }
+}
+
+// Human-readable names for common CBC performance-level letters (EE1, ME2, etc).
+// Falls back to showing the letter itself if it isn't a recognized CBC code.
+const GRADE_LEVEL_NAMES = {
+  'EE1': 'Exceeding Expectation (Level 1)',
+  'EE2': 'Exceeding Expectation (Level 2)',
+  'EE': 'Exceeding Expectation',
+  'ME1': 'Meeting Expectation (Level 1)',
+  'ME2': 'Meeting Expectation (Level 2)',
+  'ME': 'Meeting Expectation',
+  'AE1': 'Approaching Expectation (Level 1)',
+  'AE2': 'Approaching Expectation (Level 2)',
+  'AE': 'Approaching Expectation',
+  'BE1': 'Below Expectation (Level 1)',
+  'BE2': 'Below Expectation (Level 2)',
+  'BE': 'Below Expectation'
+};
+
+// Builds a small "Key" block explaining every grade letter currently configured.
+function buildGradeKeyHtml(bands) {
+  if (!bands || !bands.length) return '';
+  const sorted = bands.slice().sort((a, b) => b.min_score - a.min_score);
+  const rows = sorted.map(b => {
+    const name = GRADE_LEVEL_NAMES[b.grade_letter] || b.grade_letter;
+    return `${b.grade_letter} = ${name}`;
+  }).join('<br>');
+  return `<div style="text-align:right; font-size:11px; color:#777; margin-top:24px; line-height:1.5;">
+    <strong style="font-size:12px; color:#555;">Key</strong><br>${rows}
+  </div>`;
 }
 
 document.getElementById('gradingForm').addEventListener('submit', async (e) => {
@@ -853,7 +892,7 @@ async function loadMarksheet() {
   const examId = document.getElementById('marksheetExamSelect').value;
   const container = document.getElementById('marksheetContainer');
   const msg = document.getElementById('marksheetMsg');
-  if (!classId || !examId) { msg.innerHTML = '<div class="error">Add a class and assessment session first.</div>'; return; }
+  if (!classId || !examId) { msg.innerHTML = '<div class="error">Add a class and exam session first.</div>'; return; }
   try {
     const data = await api(`/api/marksheet/${classId}/${examId}`);
     document.getElementById('marksheetClassLine').textContent = `${data.class.stream_name} (${formatGrade(data.class.grade)})`;
@@ -903,7 +942,7 @@ async function loadAnalysis() {
   const classId = document.getElementById('analysisClassSelect').value;
   const examId = document.getElementById('analysisExamSelect').value;
   const msg = document.getElementById('analysisMsg');
-  if (!classId || !examId) { msg.innerHTML = '<div class="error">Add a class and assessment session first.</div>'; return; }
+  if (!classId || !examId) { msg.innerHTML = '<div class="error">Add a class and exam session first.</div>'; return; }
   try {
     const data = await api(`/api/analysis/class/${classId}/${examId}`);
     document.getElementById('analysisClassLine').textContent = `${data.class.stream_name} (${formatGrade(data.class.grade)})`;
@@ -920,7 +959,19 @@ async function loadAnalysis() {
         a change of ${t.change > 0 ? '+' : ''}${t.change.toFixed(1)}.
       </p>`;
     } else {
-          trendBox.innerHTML = `<p style="color:#555;">No previous assessment session found for this class yet, so no trend to compare.</p>`;
+      trendBox.innerHTML = `<p style="color:#555;">No previous exam session found for this class yet, so no trend to compare.</p>`;
+    }
+
+    const distBody = document.querySelector('#gradeDistributionTable tbody');
+    distBody.innerHTML = '';
+    if (currentGradingBands.length) {
+      const sortedBands = currentGradingBands.slice().sort((a, b) => b.min_score - a.min_score);
+      sortedBands.forEach(band => {
+        const count = data.learnerRanking.filter(r => r.overallLevel === band.grade_letter).length;
+        distBody.innerHTML += `<tr><td>${band.grade_letter}</td><td>${band.min_score} - ${band.max_score}</td><td>${band.points}</td><td>${count}</td></tr>`;
+      });
+    } else {
+      distBody.innerHTML = '<tr><td colspan="4">No grading bands set up yet.</td></tr>';
     }
 
     const container = document.getElementById('learnerRankContainer');
@@ -951,7 +1002,7 @@ async function loadAnalysis() {
         <td style="color:${changeColor};">${r.improvement > 0 ? '+' : ''}${r.improvement.toFixed(1)}</td></tr>`;
     });
     if (!data.mostImproved.length) {
-        improvedBody.innerHTML = '<tr><td colspan="5">No previous assessment session to compare against yet.</td></tr>';
+      improvedBody.innerHTML = '<tr><td colspan="5">No previous exam session to compare against yet.</td></tr>';
     }
 
     const subjectBody = document.querySelector('#subjectRankTable tbody');
@@ -1027,8 +1078,8 @@ let currentReportExamId = null;
 async function loadReport() {
   const learnerId = document.getElementById('reportLearnerSelect').value;
   const examId = document.getElementById('reportExamSelect').value;
-  if (!learnerId || !examId) { msg.innerHTML = '<div class="error">Choose a class, learner, and assessment session first.</div>'; return; }
-
+  const msg = document.getElementById('reportMsg');
+  if (!learnerId || !examId) { msg.innerHTML = '<div class="error">Choose a class, learner, and exam session first.</div>'; return; }
   try {
     const data = await api(`/api/report/${learnerId}/${examId}`);
     currentReportLearnerId = learnerId;
@@ -1056,6 +1107,7 @@ async function loadReport() {
       `Total Points: ${data.totalPoints}  |  Overall Grade: ${overallLabel}`;
 
     document.getElementById('reportGraph').innerHTML = buildLineGraph(data.history);
+    document.getElementById('reportKeyBox').innerHTML = buildGradeKeyHtml(currentGradingBands);
 
     document.getElementById('classTeacherRemark').value = data.remark.class_teacher_remark || '';
     document.getElementById('headTeacherRemark').value = data.remark.head_teacher_remark || '';
@@ -1092,7 +1144,7 @@ async function generateAllClassReports() {
   const classId = document.getElementById('reportClassSelect').value;
   const examId = document.getElementById('reportExamSelect').value;
   const msg = document.getElementById('bulkReportMsg');
-    if (!classId || !examId) { msg.innerHTML = '<div class="error">Choose a class and assessment session first.</div>'; return; }
+  if (!classId || !examId) { msg.innerHTML = '<div class="error">Choose a class and exam session first.</div>'; return; }
   msg.innerHTML = 'Building reports, please wait...';
   try {
     const learners = await api(`/api/classes/${classId}/list`);
@@ -1157,6 +1209,7 @@ async function generateAllClassReports() {
               <div style="font-size:11px; color:#555; margin-top:2px;">Parent/Guardian's Signature</div>
             </div>
           </div>
+          ${buildGradeKeyHtml(currentGradingBands)}
         </div>`;
     }
     container.innerHTML = combinedHtml;
