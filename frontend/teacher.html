@@ -239,9 +239,9 @@ async function loadMarksEntry() {
     marksheet.rows.forEach(row => {
       const score = subjIndex >= 0 ? row.scores[subjIndex] : null;
       const comment = subjIndex >= 0 && row.comments ? row.comments[subjIndex] : '';
-      tbody.innerHTML += `<tr>
+          tbody.innerHTML += `<tr>
         <td>${row.learner.name}</td>
-        <td>${row.learner.admission_number}</td>
+        <td>${row.learner.admission_number || '-'}</td>
         <td><input type="number" id="score-${row.learner.id}" value="${score === null ? '' : score}" min="1" max="99"
             onchange="submitMarkRow(${row.learner.id}, ${assignment.subject_id}, ${examId})"></td>
         <td><input type="text" id="comment-${row.learner.id}" value="${comment || ''}" placeholder="Optional comment"

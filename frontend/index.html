@@ -116,9 +116,9 @@
             <option value="F">Female</option>
           </select>
         </div>
-        <div class="row">
-          <input type="text" id="learnerUpi" placeholder="ULI Number" required>
-          <input type="text" id="learnerAdmission" placeholder="Admission Number" required>
+              <div class="row">
+          <input type="text" id="learnerUpi" placeholder="ULI Number (optional)">
+          <input type="text" id="learnerAdmission" placeholder="Admission Number (optional)">
         </div>
         <input type="text" id="learnerAssessment" placeholder="Assessment Number">
         <button type="submit">Add Learner</button>
@@ -541,8 +541,8 @@ async function loadLearners(classId) {
     const tbody = document.querySelector('#learnerTable tbody');
     tbody.innerHTML = '';
     learners.forEach(l => {
-      tbody.innerHTML += `<tr>
-        <td>${l.name}</td><td>${l.sex || ''}</td><td>${l.upi_number}</td><td>${l.admission_number}</td>
+           tbody.innerHTML += `<tr>
+        <td>${l.name}</td><td>${l.sex || ''}</td><td>${l.upi_number || '-'}</td><td>${l.admission_number || '-'}</td>
         <td><button onclick="editLearner(${l.id}, ${classId})">Edit</button>
         <button class="danger" onclick="deleteLearner(${l.id}, ${classId})">Delete</button></td>
       </tr>`;
@@ -559,11 +559,11 @@ function editLearner(id, classId) {
   if (name === null) return;
   const sex = prompt('Sex (M or F):', l.sex || '');
   if (sex === null) return;
-  const upi_number = prompt('ULI number:', l.upi_number);
+  const upi_number = prompt('ULI number (optional):', l.upi_number || '');
   if (upi_number === null) return;
-  const admission_number = prompt('Admission number:', l.admission_number);
+  const admission_number = prompt('Admission number (optional):', l.admission_number || '');
   if (admission_number === null) return;
-  const assessment_number = prompt('Assessment number:', l.assessment_number || '');
+  const assessment_number = prompt('Assessment number (optional):', l.assessment_number || '');
   if (assessment_number === null) return;
   api(`/api/learners/${id}`, { method: 'PATCH', body: JSON.stringify({ name, sex, upi_number, admission_number, assessment_number }) })
     .then(() => loadLearners(classId))
@@ -903,8 +903,8 @@ async function loadMarksheet() {
     let html = '<table><thead><tr><th>Name</th><th>Admission #</th>';
     data.subjects.forEach(s => { html += `<th>${s.name}</th>`; });
     html += '</tr></thead><tbody>';
-    data.rows.forEach(row => {
-      html += `<tr><td>${row.learner.name}</td><td>${row.learner.admission_number}</td>`;
+        data.rows.forEach(row => {
+      html += `<tr><td>${row.learner.name}</td><td>${row.learner.admission_number || '-'}</td>`;
       data.subjects.forEach((s, i) => {
         const score = row.scores[i];
         const level = row.levels ? row.levels[i] : null;
@@ -1091,9 +1091,9 @@ async function loadReport() {
     document.getElementById('reportClassLine').textContent = reportCls ? `${reportCls.stream_name} (${formatGrade(reportCls.grade)})` : '';
     const repExam = currentExams.find(ex => ex.id == examId);
     document.getElementById('reportExamLine').textContent = repExam ? repExam.name : '';
-    document.getElementById('reportLearnerName').textContent = data.learner.name;
-    document.getElementById('reportLearnerMeta').textContent =
-      `Admission #: ${data.learner.admission_number} | Assessment #: ${data.learner.assessment_number || '-'} | Sex: ${data.learner.sex || '-'}`;
+            document.getElementById('reportLearnerMeta').textContent =
+      `Admission #: ${data.learner.admission_number || '-'} | Assessment #: ${data.learner.assessment_number || '-'} | Sex: ${data.learner.sex || '-'}`;document.getElementById('reportLearnerName').textContent = data.learner.name;
+
 
     const subjBody = document.querySelector('#reportSubjectsTable tbody');
     subjBody.innerHTML = '';
@@ -1173,7 +1173,7 @@ async function generateAllClassReports() {
           <h3 style="text-align:center;">${bulkCls ? bulkCls.stream_name + ' (' + formatGrade(bulkCls.grade) + ')' : ''}</h3>
           <h3 style="text-align:center;">${bulkExam ? bulkExam.name : ''}</h3>
           <h2>${data.learner.name}</h2>
-          <p>Admission #: ${data.learner.admission_number} | Assessment #: ${data.learner.assessment_number || '-'} | Sex: ${data.learner.sex || '-'}</p>
+                <p>Admission #: ${data.learner.admission_number || '-'} | Assessment #: ${data.learner.assessment_number || '-'} | Sex: ${data.learner.sex || '-'}</p>
           <table style="width:100%; border-collapse:collapse;">
             <thead><tr><th style="text-align:left;border-bottom:1px solid #ccc;">Subject</th><th style="text-align:left;border-bottom:1px solid #ccc;">Score</th><th style="text-align:left;border-bottom:1px solid #ccc;">Grade</th><th style="text-align:left;border-bottom:1px solid #ccc;">Comment</th></tr></thead>
             <tbody>${subjectRows}</tbody>

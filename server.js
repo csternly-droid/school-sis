@@ -134,7 +134,7 @@ app.post('/api/learners', requireRole('admin'), wrap(async (req, res) => {
   const { rows } = await pool.query(
     `INSERT INTO learners (school_id, class_id, upi_number, name, sex, admission_number, assessment_number)
      VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
-    [req.user.school_id, class_id, upi_number, name, sex, admission_number, assessment_number]
+    [req.user.school_id, class_id, upi_number || null, name, sex, admission_number || null, assessment_number || null]
   );
   res.json({ id: rows[0].id });
 }));
@@ -157,7 +157,7 @@ app.patch('/api/learners/:id', requireRole('admin'), wrap(async (req, res) => {
   await pool.query(
     `UPDATE learners SET name=$1, sex=$2, upi_number=$3, admission_number=$4, assessment_number=$5
      WHERE id=$6 AND school_id=$7`,
-    [name, sex, upi_number, admission_number, assessment_number, req.params.id, req.user.school_id]
+    [name, sex, upi_number || null, admission_number || null, assessment_number || null, req.params.id, req.user.school_id]
   );
   res.json({ ok: true });
 }));
