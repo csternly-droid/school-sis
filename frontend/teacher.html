@@ -71,15 +71,19 @@
 
   <div class="card">
     <h2>Enter Marks</h2>
-    <p>Choose your subject/class, then an open assessment session.</p>
+    <p>Choose your subject/class, then an open assessment.</p>
     <select id="assignmentSelect"></select>
-    <select id="examSelect"></select>
+    <label style="margin-top:8px;">Assessment</label>
+    <select id="assessmentSelect"></select>
+    <label style="margin-top:8px;">Test marked out of</label>
+    <input type="number" id="totalMarksInput" value="100" min="1">
     <button onclick="loadMarksEntry()">Load Learners</button>
     <div id="marksMsg"></div>
   </div>
 
   <div class="card" id="marksCard" style="display:none;">
     <h3 id="marksHeader"></h3>
+    <p id="totalMarksHint" style="font-size:12px; color:#777; margin:-4px 0 8px 0;"></p>
     <table id="marksTable">
       <thead><tr><th>Name</th><th>Admission #</th><th>Score</th><th>Comment</th></tr></thead>
       <tbody></tbody>
@@ -158,7 +162,7 @@ function showDashboard() {
   document.getElementById('resetScreen').classList.add('hidden');
   document.getElementById('dashboard').classList.remove('hidden');
   loadAssignments();
-  loadExamSessions();
+  loadAssessmentSessions();
   if (sessionCheckInterval) clearInterval(sessionCheckInterval);
   sessionCheckInterval = setInterval(() => { api('/api/session-check').catch(() => {}); }, 20000);
   resetInactivityTimer();
@@ -207,11 +211,11 @@ async function loadAssignments() {
   }
 }
 
-async function loadExamSessions() {
+async function loadAssessmentSessions() {
   try {
-    const exams = await api('/api/exam-sessions');
-    const select = document.getElementById('examSelect');
-    select.innerHTML = exams.map(ex => `<option value="${ex.id}">${ex.name}${ex.is_open ? ' (OPEN)' : ' (closed)'}</option>`).join('');
+    const assessments = await api('/api/exam-sessions');
+    const select = document.getElementById('assessmentSelect');
+    select.innerHTML = assessments.map(a => `<option value="${a.id}">${a.name}${a.is_open ? ' (OPEN)' : ' (closed)'}</option>`).join('');
   } catch (err) {
     document.getElementById('marksMsg').innerHTML = `<div class="error">${err.message}</div>`;
   }
@@ -219,42 +223,59 @@ async function loadExamSessions() {
 
 async function loadMarksEntry() {
   const idx = document.getElementById('assignmentSelect').value;
-  const examId = document.getElementById('examSelect').value;
+  const assessmentId = document.getElementById('assessmentSelect').value;
   const msg = document.getElementById('marksMsg');
-  if (idx === '' || !examId) {
-    msg.innerHTML = '<div class="error">Choose a subject/class and assessment session.</div>';
+  if (idx === '' || !assessmentId) {
+    msg.innerHTML = '<div class="error">Choose a subject/class and assessment.</div>';
     return;
   }
 
   const assignment = myAssignments[idx];
   try {
     const learners = await api(`/api/classes/${assignment.class_id}/list`);
-    const marksheet = await api(`/api/marksheet/${assignment.class_id}/${examId}`);
+    const marksheet = await api(`/api/marksheet/${assignment.class_id}/${assessmentId}`);
     const subjIndex = marksheet.subjects.findIndex(s => s.id === assignment.subject_id);
 
     document.getElementById('marksHeader').textContent =
       `${assignment.subject_name} - ${assignment.stream_name}`;
     const tbody = document.querySelector('#marksTable tbody');
     tbody.innerHTML = '';
+    const totalMarksAtLoad = Number(document.getElementById('totalMarksInput').value) || 100;
     marksheet.rows.forEach(row => {
       const score = subjIndex >= 0 ? row.scores[subjIndex] : null;
       const comment = subjIndex >= 0 && row.comments ? row.comments[subjIndex] : '';
-          tbody.innerHTML += `<tr>
+      tbody.innerHTML += `<tr>
         <td>${row.learner.name}</td>
         <td>${row.learner.admission_number || '-'}</td>
-        <td><input type="number" id="score-${row.learner.id}" value="${score === null ? '' : score}" min="1" max="99"
-            onchange="submitMarkRow(${row.learner.id}, ${assignment.subject_id}, ${examId})"></td>
+        <td><input type="number" id="score-${row.learner.id}" value="${score === null ? '' : score}" min="1" max="${totalMarksAtLoad}"
+            onchange="submitMarkRow(${row.learner.id}, ${assignment.subject_id}, ${assessmentId})"></td>
         <td><input type="text" id="comment-${row.learner.id}" value="${comment || ''}" placeholder="Optional comment"
-            onchange="submitMarkRow(${row.learner.id}, ${assignment.subject_id}, ${examId})"></td>
+            onchange="submitMarkRow(${row.learner.id}, ${assignment.subject_id}, ${assessmentId})"></td>
       </tr>`;
     });
     document.getElementById('marksCard').style.display = 'block';
+    updateTotalMarksHint();
     updateSubjectMean();
     msg.innerHTML = '';
   } catch (err) {
     msg.innerHTML = `<div class="error">${err.message}</div>`;
   }
 }
+
+function updateTotalMarksHint() {
+  const total = Number(document.getElementById('totalMarksInput').value) || 100;
+  const hint = document.getElementById('totalMarksHint');
+  if (!hint) return;
+  hint.textContent = total === 100
+    ? ''
+    : `Enter each learner's raw score out of ${total}. It will be saved as a percentage out of 100.`;
+}
+
+document.getElementById('totalMarksInput').addEventListener('change', () => {
+  const total = Number(document.getElementById('totalMarksInput').value) || 100;
+  document.querySelectorAll('#marksTable tbody input[id^="score-"]').forEach(inp => { inp.max = total; });
+  updateTotalMarksHint();
+});
 
 function updateSubjectMean() {
   const inputs = document.querySelectorAll('#marksTable tbody input[id^="score-"]');
@@ -269,24 +290,41 @@ function updateSubjectMean() {
   display.textContent = `Subject Mean (so far): ${mean.toFixed(1)} (${validScores.length} of ${values.length} learners marked)`;
 }
 
-async function submitMarkRow(learnerId, subjectId, examId) {
+async function submitMarkRow(learnerId, subjectId, assessmentId) {
   const scoreInput = document.getElementById(`score-${learnerId}`);
   const commentInput = document.getElementById(`comment-${learnerId}`);
-  const value = scoreInput.value;
+  const rawValue = scoreInput.value;
   const comment = commentInput.value;
-  if (value === '') return;
+  if (rawValue === '') return;
+
+  const total = Number(document.getElementById('totalMarksInput').value) || 100;
+  const raw = Number(rawValue);
+
+  if (raw < 1 || raw > total) {
+    document.getElementById('marksMsg').innerHTML = `<div class="error">Score must be between 1 and ${total} (the total marks for this test).</div>`;
+    return;
+  }
+
+  const converted = total === 100 ? raw : Math.round((raw / total) * 100 * 10) / 10;
+
   try {
     await api('/api/marks', {
       method: 'POST',
       body: JSON.stringify({
-        exam_session_id: Number(examId),
+        exam_session_id: Number(assessmentId),
         learner_id: learnerId,
         subject_id: subjectId,
-        score: Number(value),
+        score: converted,
         comment: comment
       })
     });
-    document.getElementById('marksMsg').innerHTML = '<div class="success">Saved.</div>';
+    if (total !== 100) {
+      scoreInput.value = converted;
+      scoreInput.max = 100;
+      document.getElementById('marksMsg').innerHTML = `<div class="success">Saved as ${converted}/100 (converted from ${raw}/${total}).</div>`;
+    } else {
+      document.getElementById('marksMsg').innerHTML = '<div class="success">Saved.</div>';
+    }
     updateSubjectMean();
   } catch (err) {
     document.getElementById('marksMsg').innerHTML = `<div class="error">${err.message}</div>`;

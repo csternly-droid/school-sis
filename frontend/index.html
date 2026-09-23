@@ -80,7 +80,7 @@
       <button data-tab="subjects">Subjects</button>
       <button data-tab="teachers">Teachers</button>
       <button data-tab="assignments">Assignments</button>
-      <button data-tab="exams">Exams</button>
+      <button data-tab="exams">Assessments</button>
       <button data-tab="grading">Grading</button>
       <button data-tab="marksheet">Mark Sheet</button>
       <button data-tab="analysis">Analysis</button>
@@ -178,12 +178,12 @@
     </div>
 
     <!-- EXAMS TAB -->
-    <div id="tab-exams" class="tab hidden">
-      <h2>Exam Sessions</h2>
-      <p>Open an exam session so teachers can enter marks. Close it when done — only you can edit marks after that.</p>
+        <div id="tab-exams" class="tab hidden">
+      <h2>Assessment Sessions</h2>
+      <p>Open an assessment session so teachers can enter marks. Close it when done — only you can edit marks after that.</p>
       <form id="examForm" class="row">
         <input type="text" id="examName" placeholder="e.g. Term 2 Mid-Term 2026" required>
-        <button type="submit">Create Exam Session</button>
+        <button type="submit">Create Assessment Session</button>
       </form>
       <div id="examMsg"></div>
       <table id="examTable">
@@ -894,7 +894,7 @@ async function loadMarksheet() {
   const examId = document.getElementById('marksheetExamSelect').value;
   const container = document.getElementById('marksheetContainer');
   const msg = document.getElementById('marksheetMsg');
-  if (!classId || !examId) { msg.innerHTML = '<div class="error">Add a class and exam session first.</div>'; return; }
+   if (!classId || !examId) { msg.innerHTML = '<div class="error">Add a class and assessment session first.</div>'; return; }
   try {
     const data = await api(`/api/marksheet/${classId}/${examId}`);
     document.getElementById('marksheetClassLine').textContent = `${data.class.stream_name} (${formatGrade(data.class.grade)})`;
@@ -944,7 +944,7 @@ async function loadAnalysis() {
   const classId = document.getElementById('analysisClassSelect').value;
   const examId = document.getElementById('analysisExamSelect').value;
   const msg = document.getElementById('analysisMsg');
-  if (!classId || !examId) { msg.innerHTML = '<div class="error">Add a class and exam session first.</div>'; return; }
+    if (!classId || !examId) { msg.innerHTML = '<div class="error">Add a class and assessment session first.</div>'; return; }
   try {
     const data = await api(`/api/analysis/class/${classId}/${examId}`);
     document.getElementById('analysisClassLine').textContent = `${data.class.stream_name} (${formatGrade(data.class.grade)})`;
@@ -961,7 +961,7 @@ async function loadAnalysis() {
         a change of ${t.change > 0 ? '+' : ''}${t.change.toFixed(1)}.
       </p>`;
     } else {
-      trendBox.innerHTML = `<p style="color:#555;">No previous exam session found for this class yet, so no trend to compare.</p>`;
+      trendBox.innerHTML = `<p style="color:#555;">No previous assessment session found for this class yet, so no trend to compare.</p>`;
     }
 
     const distBody = document.querySelector('#gradeDistributionTable tbody');
@@ -1004,7 +1004,7 @@ async function loadAnalysis() {
         <td style="color:${changeColor};">${r.improvement > 0 ? '+' : ''}${r.improvement.toFixed(1)}</td></tr>`;
     });
     if (!data.mostImproved.length) {
-      improvedBody.innerHTML = '<tr><td colspan="5">No previous exam session to compare against yet.</td></tr>';
+          improvedBody.innerHTML = '<tr><td colspan="5">No previous assessment session to compare against yet.</td></tr>';
     }
 
     const subjectBody = document.querySelector('#subjectRankTable tbody');
@@ -1081,7 +1081,7 @@ async function loadReport() {
   const learnerId = document.getElementById('reportLearnerSelect').value;
   const examId = document.getElementById('reportExamSelect').value;
   const msg = document.getElementById('reportMsg');
-  if (!learnerId || !examId) { msg.innerHTML = '<div class="error">Choose a class, learner, and exam session first.</div>'; return; }
+    if (!learnerId || !examId) { msg.innerHTML = '<div class="error">Choose a class, learner, and assessment session first.</div>'; return; }
   try {
     const data = await api(`/api/report/${learnerId}/${examId}`);
     currentReportLearnerId = learnerId;
@@ -1146,7 +1146,7 @@ async function generateAllClassReports() {
   const classId = document.getElementById('reportClassSelect').value;
   const examId = document.getElementById('reportExamSelect').value;
   const msg = document.getElementById('bulkReportMsg');
-  if (!classId || !examId) { msg.innerHTML = '<div class="error">Choose a class and exam session first.</div>'; return; }
+   if (!classId || !examId) { msg.innerHTML = '<div class="error">Choose a class and assessment session first.</div>'; return; }
   msg.innerHTML = 'Building reports, please wait...';
   try {
     const learners = await api(`/api/classes/${classId}/list`);
