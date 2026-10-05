@@ -80,7 +80,7 @@
       <button data-tab="subjects">Subjects</button>
       <button data-tab="teachers">Teachers</button>
       <button data-tab="assignments">Assignments</button>
-      <button data-tab="exams">Assessments</button>
+      <button data-tab="exams">Exams</button>
       <button data-tab="grading">Grading</button>
       <button data-tab="marksheet">Mark Sheet</button>
       <button data-tab="analysis">Analysis</button>
@@ -116,9 +116,9 @@
             <option value="F">Female</option>
           </select>
         </div>
-              <div class="row">
-          <input type="text" id="learnerUpi" placeholder="ULI Number (optional)">
-          <input type="text" id="learnerAdmission" placeholder="Admission Number (optional)">
+        <div class="row">
+          <input type="text" id="learnerUpi" placeholder="ULI Number" required>
+          <input type="text" id="learnerAdmission" placeholder="Admission Number" required>
         </div>
         <input type="text" id="learnerAssessment" placeholder="Assessment Number">
         <button type="submit">Add Learner</button>
@@ -178,12 +178,12 @@
     </div>
 
     <!-- EXAMS TAB -->
-        <div id="tab-exams" class="tab hidden">
-      <h2>Assessment Sessions</h2>
-      <p>Open an assessment session so teachers can enter marks. Close it when done — only you can edit marks after that.</p>
+    <div id="tab-exams" class="tab hidden">
+      <h2>Exam Sessions</h2>
+      <p>Open an exam session so teachers can enter marks. Close it when done — only you can edit marks after that.</p>
       <form id="examForm" class="row">
         <input type="text" id="examName" placeholder="e.g. Term 2 Mid-Term 2026" required>
-        <button type="submit">Create Assessment Session</button>
+        <button type="submit">Create Exam Session</button>
       </form>
       <div id="examMsg"></div>
       <table id="examTable">
@@ -541,8 +541,8 @@ async function loadLearners(classId) {
     const tbody = document.querySelector('#learnerTable tbody');
     tbody.innerHTML = '';
     learners.forEach(l => {
-           tbody.innerHTML += `<tr>
-        <td>${l.name}</td><td>${l.sex || ''}</td><td>${l.upi_number || '-'}</td><td>${l.admission_number || '-'}</td>
+      tbody.innerHTML += `<tr>
+        <td>${l.name}</td><td>${l.sex || ''}</td><td>${l.upi_number}</td><td>${l.admission_number}</td>
         <td><button onclick="editLearner(${l.id}, ${classId})">Edit</button>
         <button class="danger" onclick="deleteLearner(${l.id}, ${classId})">Delete</button></td>
       </tr>`;
@@ -559,11 +559,11 @@ function editLearner(id, classId) {
   if (name === null) return;
   const sex = prompt('Sex (M or F):', l.sex || '');
   if (sex === null) return;
-  const upi_number = prompt('ULI number (optional):', l.upi_number || '');
+  const upi_number = prompt('ULI number:', l.upi_number);
   if (upi_number === null) return;
-  const admission_number = prompt('Admission number (optional):', l.admission_number || '');
+  const admission_number = prompt('Admission number:', l.admission_number);
   if (admission_number === null) return;
-  const assessment_number = prompt('Assessment number (optional):', l.assessment_number || '');
+  const assessment_number = prompt('Assessment number:', l.assessment_number || '');
   if (assessment_number === null) return;
   api(`/api/learners/${id}`, { method: 'PATCH', body: JSON.stringify({ name, sex, upi_number, admission_number, assessment_number }) })
     .then(() => loadLearners(classId))
@@ -894,7 +894,7 @@ async function loadMarksheet() {
   const examId = document.getElementById('marksheetExamSelect').value;
   const container = document.getElementById('marksheetContainer');
   const msg = document.getElementById('marksheetMsg');
-   if (!classId || !examId) { msg.innerHTML = '<div class="error">Add a class and assessment session first.</div>'; return; }
+  if (!classId || !examId) { msg.innerHTML = '<div class="error">Add a class and exam session first.</div>'; return; }
   try {
     const data = await api(`/api/marksheet/${classId}/${examId}`);
     document.getElementById('marksheetClassLine').textContent = `${data.class.stream_name} (${formatGrade(data.class.grade)})`;
@@ -903,8 +903,8 @@ async function loadMarksheet() {
     let html = '<table><thead><tr><th>Name</th><th>Admission #</th>';
     data.subjects.forEach(s => { html += `<th>${s.name}</th>`; });
     html += '</tr></thead><tbody>';
-        data.rows.forEach(row => {
-      html += `<tr><td>${row.learner.name}</td><td>${row.learner.admission_number || '-'}</td>`;
+    data.rows.forEach(row => {
+      html += `<tr><td>${row.learner.name}</td><td>${row.learner.admission_number}</td>`;
       data.subjects.forEach((s, i) => {
         const score = row.scores[i];
         const level = row.levels ? row.levels[i] : null;
@@ -944,7 +944,7 @@ async function loadAnalysis() {
   const classId = document.getElementById('analysisClassSelect').value;
   const examId = document.getElementById('analysisExamSelect').value;
   const msg = document.getElementById('analysisMsg');
-    if (!classId || !examId) { msg.innerHTML = '<div class="error">Add a class and assessment session first.</div>'; return; }
+  if (!classId || !examId) { msg.innerHTML = '<div class="error">Add a class and exam session first.</div>'; return; }
   try {
     const data = await api(`/api/analysis/class/${classId}/${examId}`);
     document.getElementById('analysisClassLine').textContent = `${data.class.stream_name} (${formatGrade(data.class.grade)})`;
@@ -961,7 +961,7 @@ async function loadAnalysis() {
         a change of ${t.change > 0 ? '+' : ''}${t.change.toFixed(1)}.
       </p>`;
     } else {
-      trendBox.innerHTML = `<p style="color:#555;">No previous assessment session found for this class yet, so no trend to compare.</p>`;
+      trendBox.innerHTML = `<p style="color:#555;">No previous exam session found for this class yet, so no trend to compare.</p>`;
     }
 
     const distBody = document.querySelector('#gradeDistributionTable tbody');
@@ -1004,7 +1004,7 @@ async function loadAnalysis() {
         <td style="color:${changeColor};">${r.improvement > 0 ? '+' : ''}${r.improvement.toFixed(1)}</td></tr>`;
     });
     if (!data.mostImproved.length) {
-          improvedBody.innerHTML = '<tr><td colspan="5">No previous assessment session to compare against yet.</td></tr>';
+      improvedBody.innerHTML = '<tr><td colspan="5">No previous exam session to compare against yet.</td></tr>';
     }
 
     const subjectBody = document.querySelector('#subjectRankTable tbody');
@@ -1081,7 +1081,7 @@ async function loadReport() {
   const learnerId = document.getElementById('reportLearnerSelect').value;
   const examId = document.getElementById('reportExamSelect').value;
   const msg = document.getElementById('reportMsg');
-    if (!learnerId || !examId) { msg.innerHTML = '<div class="error">Choose a class, learner, and assessment session first.</div>'; return; }
+  if (!learnerId || !examId) { msg.innerHTML = '<div class="error">Choose a class, learner, and exam session first.</div>'; return; }
   try {
     const data = await api(`/api/report/${learnerId}/${examId}`);
     currentReportLearnerId = learnerId;
@@ -1091,9 +1091,9 @@ async function loadReport() {
     document.getElementById('reportClassLine').textContent = reportCls ? `${reportCls.stream_name} (${formatGrade(reportCls.grade)})` : '';
     const repExam = currentExams.find(ex => ex.id == examId);
     document.getElementById('reportExamLine').textContent = repExam ? repExam.name : '';
-            document.getElementById('reportLearnerMeta').textContent =
-      `Admission #: ${data.learner.admission_number || '-'} | Assessment #: ${data.learner.assessment_number || '-'} | Sex: ${data.learner.sex || '-'}`;document.getElementById('reportLearnerName').textContent = data.learner.name;
-
+    document.getElementById('reportLearnerName').textContent = data.learner.name;
+    document.getElementById('reportLearnerMeta').textContent =
+      `Admission #: ${data.learner.admission_number} | Assessment #: ${data.learner.assessment_number || '-'} | Sex: ${data.learner.sex || '-'}`;
 
     const subjBody = document.querySelector('#reportSubjectsTable tbody');
     subjBody.innerHTML = '';
@@ -1146,7 +1146,7 @@ async function generateAllClassReports() {
   const classId = document.getElementById('reportClassSelect').value;
   const examId = document.getElementById('reportExamSelect').value;
   const msg = document.getElementById('bulkReportMsg');
-   if (!classId || !examId) { msg.innerHTML = '<div class="error">Choose a class and assessment session first.</div>'; return; }
+  if (!classId || !examId) { msg.innerHTML = '<div class="error">Choose a class and exam session first.</div>'; return; }
   msg.innerHTML = 'Building reports, please wait...';
   try {
     const learners = await api(`/api/classes/${classId}/list`);
@@ -1173,7 +1173,7 @@ async function generateAllClassReports() {
           <h3 style="text-align:center;">${bulkCls ? bulkCls.stream_name + ' (' + formatGrade(bulkCls.grade) + ')' : ''}</h3>
           <h3 style="text-align:center;">${bulkExam ? bulkExam.name : ''}</h3>
           <h2>${data.learner.name}</h2>
-                <p>Admission #: ${data.learner.admission_number || '-'} | Assessment #: ${data.learner.assessment_number || '-'} | Sex: ${data.learner.sex || '-'}</p>
+          <p>Admission #: ${data.learner.admission_number} | Assessment #: ${data.learner.assessment_number || '-'} | Sex: ${data.learner.sex || '-'}</p>
           <table style="width:100%; border-collapse:collapse;">
             <thead><tr><th style="text-align:left;border-bottom:1px solid #ccc;">Subject</th><th style="text-align:left;border-bottom:1px solid #ccc;">Score</th><th style="text-align:left;border-bottom:1px solid #ccc;">Grade</th><th style="text-align:left;border-bottom:1px solid #ccc;">Comment</th></tr></thead>
             <tbody>${subjectRows}</tbody>
@@ -1229,12 +1229,52 @@ async function downloadAllClassReports() {
     msg.innerHTML = '<div class="error">Click "Generate All Reports for This Class" first.</div>';
     return;
   }
-  html2pdf().from(container).set({
-    margin: 10,
-    filename: 'class_reports.pdf',
-    html2canvas: { scale: 2 },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-  }).save();
+
+  // Each learner's report is one direct child div of the container
+  // (built in generateAllClassReports). Rendering the whole container
+  // as a single giant canvas is what was producing blank/empty PDFs for
+  // larger classes - the combined image silently exceeds the browser's
+  // max canvas size. Instead, render one learner at a time and give
+  // each its own A4 page, shrinking to fit if a single report is taller
+  // than one page.
+  const reportBlocks = Array.from(container.children);
+  if (!reportBlocks.length) {
+    msg.innerHTML = '<div class="error">No reports to download.</div>';
+    return;
+  }
+  if (typeof html2canvas !== 'function' || !window.jspdf || !window.jspdf.jsPDF) {
+    msg.innerHTML = '<div class="error">PDF library failed to load. Refresh the page and try again.</div>';
+    return;
+  }
+
+  msg.innerHTML = `Preparing PDF... (0 of ${reportBlocks.length})`;
+
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+
+  for (let i = 0; i < reportBlocks.length; i++) {
+    const canvas = await html2canvas(reportBlocks[i], { scale: 2, useCORS: true });
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    const imgWidthMm = pageWidth;
+    const imgHeightMm = (canvas.height * imgWidthMm) / canvas.width;
+
+    if (i > 0) pdf.addPage();
+
+    if (imgHeightMm <= pageHeight) {
+      pdf.addImage(imgData, 'JPEG', 0, 0, imgWidthMm, imgHeightMm);
+    } else {
+      // Report is taller than one A4 page - shrink it to fit exactly one page.
+      const scaledWidthMm = (pageHeight / imgHeightMm) * imgWidthMm;
+      const xOffsetMm = (pageWidth - scaledWidthMm) / 2;
+      pdf.addImage(imgData, 'JPEG', xOffsetMm, 0, scaledWidthMm, pageHeight);
+    }
+
+    msg.innerHTML = `Preparing PDF... (${i + 1} of ${reportBlocks.length})`;
+  }
+
+  pdf.save('class_reports.pdf');
   msg.innerHTML = '<div class="success">Downloaded.</div>';
 }
 
