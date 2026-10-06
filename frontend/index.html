@@ -1055,14 +1055,15 @@ async function loadAnalysis() {
       const subjectNames = data.learnerRanking[0].subjects.map(s => s.subject);
       let html = '<table><thead><tr><th>Position</th><th>Name</th>';
       subjectNames.forEach(name => { html += `<th>${name}</th>`; });
-      html += '<th>Average</th><th>Total Points</th><th>Overall Grade</th></tr></thead><tbody>';
+      html += '<th>Total Marks</th><th>Average</th><th>Total Points</th><th>Overall Grade</th></tr></thead><tbody>';
       data.learnerRanking.forEach(r => {
         html += `<tr><td>${r.position}</td><td>${r.learner.name}</td>`;
         r.subjects.forEach(s => {
           const display = s.score === null ? '-' : `${s.score}${s.level ? ' (' + s.level + ')' : ''}`;
           html += `<td>${display}</td>`;
         });
-        html += `<td>${r.mean.toFixed(1)}</td><td>${r.totalPoints}</td><td>${r.overallLevel || '-'}</td></tr>`;
+        const totalMarks = r.subjects.reduce((sum, s) => sum + (s.score !== null ? s.score : 0), 0);
+        html += `<td>${totalMarks}</td><td>${r.mean.toFixed(1)}</td><td>${r.totalPoints}</td><td>${r.overallLevel || '-'}</td></tr>`;
       });
       html += '</tbody></table>';
       container.innerHTML = html;
