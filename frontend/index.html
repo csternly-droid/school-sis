@@ -241,7 +241,7 @@
       <div class="row">
         <select id="smsClassSelect"></select>
         <button onclick="loadSubjectMarksSheet()">Generate</button>
-        <button onclick="downloadArea('smsPrintArea', 'subject_marks_sheet.pdf')">Download (PDF)</button>
+        <button onclick="downloadArea('smsPrintArea', 'subject_marks_sheet.pdf', 'portrait')">Download (PDF)</button>
         <button onclick="printArea('smsPrintArea')">Print</button>
       </div>
       <div id="smsMsg"></div>
@@ -269,7 +269,7 @@
         <select id="analysisClassSelect"></select>
         <select id="analysisExamSelect"></select>
         <button onclick="loadAnalysis()">Run Analysis</button>
-        <button onclick="downloadArea('analysisPrintArea', 'analysis.pdf')">Download Analysis (PDF)</button>
+        <button onclick="downloadArea('analysisPrintArea', 'analysis.pdf', 'portrait')">Download Analysis (PDF)</button>
       </div>
       <div id="analysisMsg"></div>
       <div id="analysisPrintArea">
@@ -493,13 +493,13 @@ function printArea(id) {
   window.print();
 }
 
-function downloadArea(id, filename) {
+function downloadArea(id, filename, orientation = 'landscape') {
   const el = document.getElementById(id);
   html2pdf().from(el).set({
     margin: 10,
     filename: filename,
     html2canvas: { scale: 2 },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+    jsPDF: { unit: 'mm', format: 'a4', orientation: orientation }
   }).save();
 }
 
