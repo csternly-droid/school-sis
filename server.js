@@ -11,6 +11,12 @@ const path = require('path');
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+app.use('/api', (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
+
 app.use(express.static(path.join(__dirname, 'frontend')));
 
 // Small helper so we don't repeat try/catch everywhere
@@ -131,12 +137,19 @@ app.patch('/api/classes/:id', requireRole('admin'), wrap(async (req, res) => {
 // ---------- ADMIN: learners ----------
 app.post('/api/learners', requireRole('admin'), wrap(async (req, res) => {
   const { class_id, upi_number, name, sex, admission_number, assessment_number } = req.body;
-  const { rows } = await pool.query(
-    `INSERT INTO learners (school_id, class_id, upi_number, name, sex, admission_number, assessment_number)
-     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
-    [req.user.school_id, class_id, upi_number || null, name, sex, admission_number || null, assessment_number || null]
-  );
-  res.json({ id: rows[0].id });
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO learners (school_id, class_id, upi_number, name, sex, admission_number, assessment_number)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+      [req.user.school_id, class_id, upi_number, name, sex, admission_number, assessment_number]
+    );
+    res.json({ id: rows[0].id });
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(400).json({ error: 'A learner with this ULI number already exists in your school.' });
+    }
+    throw err;
+  }
 }));
 
 app.get('/api/classes/:classId/list', requireRole('admin', 'teacher'), wrap(async (req, res) => {
@@ -157,7 +170,7 @@ app.patch('/api/learners/:id', requireRole('admin'), wrap(async (req, res) => {
   await pool.query(
     `UPDATE learners SET name=$1, sex=$2, upi_number=$3, admission_number=$4, assessment_number=$5
      WHERE id=$6 AND school_id=$7`,
-    [name, sex, upi_number || null, admission_number || null, assessment_number || null, req.params.id, req.user.school_id]
+    [name, sex, upi_number, admission_number, assessment_number, req.params.id, req.user.school_id]
   );
   res.json({ ok: true });
 }));
@@ -276,8 +289,50 @@ app.patch('/api/exam-sessions/:id/toggle', requireRole('admin'), wrap(async (req
 }));
 
 app.get('/api/exam-sessions', requireRole('admin', 'teacher'), wrap(async (req, res) => {
-  const { rows } = await pool.query('SELECT * FROM exam_sessions WHERE school_id=$1 ORDER BY id', [req.user.school_id]);
+  // created_by_teacher_id IS NULL excludes teacher-created CATs, which stay
+  // private to the teacher who made them and must never appear in the
+  // admin's exam-session list (or any admin select that reuses it).
+  const { rows } = await pool.query(
+    'SELECT * FROM exam_sessions WHERE school_id=$1 AND created_by_teacher_id IS NULL ORDER BY id',
+    [req.user.school_id]
+  );
   res.json(rows);
+}));
+
+// ---------- TEACHER: CATs (private assessments only the creating teacher can see) ----------
+app.post('/api/teacher/cats', requireRole('teacher'), wrap(async (req, res) => {
+  const { name } = req.body;
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: 'Please give the CAT a name.' });
+  }
+  const { rows } = await pool.query(
+    'INSERT INTO exam_sessions (school_id, name, is_open, created_by_teacher_id) VALUES ($1,$2,TRUE,$3) RETURNING id',
+    [req.user.school_id, name.trim(), req.user.id]
+  );
+  res.json({ id: rows[0].id });
+}));
+
+app.get('/api/teacher/cats', requireRole('teacher'), wrap(async (req, res) => {
+  const { rows } = await pool.query(
+    'SELECT * FROM exam_sessions WHERE school_id=$1 AND created_by_teacher_id=$2 ORDER BY id DESC',
+    [req.user.school_id, req.user.id]
+  );
+  res.json(rows);
+}));
+
+app.delete('/api/teacher/cats/:id', requireRole('teacher'), wrap(async (req, res) => {
+  try {
+    await pool.query(
+      'DELETE FROM exam_sessions WHERE id=$1 AND school_id=$2 AND created_by_teacher_id=$3',
+      [req.params.id, req.user.school_id, req.user.id]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    if (err.code === '23503') {
+      return res.status(400).json({ error: 'Cannot delete: marks have already been entered for this CAT.' });
+    }
+    throw err;
+  }
 }));
 
 // ---------- TEACHER: enter marks ----------
