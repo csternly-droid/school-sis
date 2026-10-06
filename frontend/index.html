@@ -942,7 +942,7 @@ async function loadSubjectMarksSheet() {
     const headCell = 'style="border:1px solid #000; padding:6px; background:#f4f6f8;"';
     let html = `<table style="border-collapse:collapse; width:100%;"><thead><tr>
       <th ${headCell}>#</th><th ${headCell}>Name</th><th ${headCell}>Admission #</th>
-      <th ${headCell}>PP1</th><th ${headCell}>PP2</th><th ${headCell}>PP3</th><th ${headCell}>Total</th>
+      <th ${headCell}>PP1</th><th ${headCell}>PP2</th><th ${headCell}>PP3</th><th ${headCell}>Total/Average</th>
     </tr></thead><tbody>`;
     learners.forEach((l, i) => {
       html += `<tr>
