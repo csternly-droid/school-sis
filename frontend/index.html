@@ -85,6 +85,7 @@
       <button data-tab="exams">Exams</button>
       <button data-tab="grading">Grading</button>
       <button data-tab="marksheet">Mark Sheet</button>
+      <button data-tab="subjectmarksheet">Subject Marksheet</button>
       <button data-tab="analysis">Analysis</button>
       <button data-tab="report">Report</button>
     </nav>
@@ -229,6 +230,35 @@
         <h3 id="marksheetClassLine" style="text-align:center;"></h3>
         <h3 id="marksheetExamLine" style="text-align:center;"></h3>
         <div id="marksheetContainer" style="overflow-x:auto;"></div>
+      </div>
+    </div>
+
+    <!-- SUBJECT MARKSHEET TAB -->
+    <div id="tab-subjectmarksheet" class="tab hidden">
+      <h2 id="smsSchoolHeader" style="text-align:center;"></h2>
+      <h2>Subject Marks Sheet</h2>
+      <p>A blank marks sheet for a class, for a teacher to print and fill in by hand (e.g. during an exam), then later enter into the system.</p>
+      <div class="row">
+        <select id="smsClassSelect"></select>
+        <button onclick="loadSubjectMarksSheet()">Generate</button>
+        <button onclick="downloadArea('smsPrintArea', 'subject_marks_sheet.pdf')">Download (PDF)</button>
+        <button onclick="printArea('smsPrintArea')">Print</button>
+      </div>
+      <div id="smsMsg"></div>
+      <div id="smsPrintArea">
+        <h2 id="smsSchoolHeader2" style="text-align:center;"></h2>
+        <h3 id="smsClassLine" style="text-align:center;"></h3>
+        <div class="row" style="margin: 16px 0;">
+          <div style="flex:1;">
+            <label>Subject</label>
+            <div style="border-bottom:1px solid #000; height:24px;"></div>
+          </div>
+          <div style="flex:1;">
+            <label>Date</label>
+            <div style="border-bottom:1px solid #000; height:24px;"></div>
+          </div>
+        </div>
+        <div id="smsContainer" style="overflow-x:auto;"></div>
       </div>
     </div>
 
@@ -496,6 +526,7 @@ async function loadClasses() {
     if (classes.length) loadLearners(select.value);
     populateAssignmentSelects();
     populateMarksheetSelects();
+    populateSmsSelect();
     populateReportClassSelect();
   } catch (err) {
     document.getElementById('classMsg').innerHTML = `<div class="error">${err.message}</div>`;
@@ -889,6 +920,47 @@ function populateMarksheetSelects() {
   if (!classSelect || !examSelect) return;
   classSelect.innerHTML = currentClasses.map(c => `<option value="${c.id}">${c.stream_name} (${formatGrade(c.grade)})</option>`).join('');
   examSelect.innerHTML = currentExams.map(ex => `<option value="${ex.id}">${ex.name}</option>`).join('');
+}
+
+// ====== SUBJECT MARKSHEET (blank, printable, fill-by-hand) ======
+function populateSmsSelect() {
+  const sel = document.getElementById('smsClassSelect');
+  if (!sel) return;
+  sel.innerHTML = currentClasses.map(c => `<option value="${c.id}">${c.stream_name} (${formatGrade(c.grade)})</option>`).join('');
+}
+
+async function loadSubjectMarksSheet() {
+  const classId = document.getElementById('smsClassSelect').value;
+  const msg = document.getElementById('smsMsg');
+  if (!classId) { msg.innerHTML = '<div class="error">Choose a class first.</div>'; return; }
+  try {
+    const learners = await api(`/api/classes/${classId}/list`);
+    const cls = currentClasses.find(c => c.id == classId);
+    document.getElementById('smsClassLine').textContent = cls ? `${cls.stream_name} (${formatGrade(cls.grade)})` : '';
+
+    const cell = 'style="border:1px solid #000; padding:6px;"';
+    const headCell = 'style="border:1px solid #000; padding:6px; background:#f4f6f8;"';
+    let html = `<table style="border-collapse:collapse; width:100%;"><thead><tr>
+      <th ${headCell}>#</th><th ${headCell}>Name</th><th ${headCell}>Admission #</th>
+      <th ${headCell}>PP1</th><th ${headCell}>PP2</th><th ${headCell}>PP3</th><th ${headCell}>Total</th>
+    </tr></thead><tbody>`;
+    learners.forEach((l, i) => {
+      html += `<tr>
+        <td ${cell}>${i + 1}</td>
+        <td ${cell}>${l.name}</td>
+        <td ${cell}>${l.admission_number || '-'}</td>
+        <td ${cell} height="32"></td>
+        <td ${cell}></td>
+        <td ${cell}></td>
+        <td ${cell}></td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    document.getElementById('smsContainer').innerHTML = html;
+    msg.innerHTML = '';
+  } catch (err) {
+    msg.innerHTML = `<div class="error">${err.message}</div>`;
+  }
 }
 
 async function loadMarksheet() {
@@ -1287,7 +1359,7 @@ async function loadSchoolInfo() {
     const data = await api('/api/school');
     schoolName = data.name;
     const upper = schoolName.toUpperCase();
-    ['marksheetSchoolHeader', 'marksheetSchoolHeader2', 'analysisSchoolHeader', 'reportSchoolHeader'].forEach(id => {
+    ['marksheetSchoolHeader', 'marksheetSchoolHeader2', 'smsSchoolHeader', 'smsSchoolHeader2', 'analysisSchoolHeader', 'reportSchoolHeader'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.textContent = upper;
     });
