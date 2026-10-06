@@ -2,50 +2,31 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>School Admin</title>
-<link rel="manifest" href="manifest-admin.json">
+<title>Teacher Portal - School SIS</title>
+<link rel="manifest" href="manifest-teacher.json">
 <meta name="theme-color" content="#1565C0">
-<link rel="apple-touch-icon" href="icons/icon-192-admin.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="SCO Admin">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<meta name="apple-mobile-web-app-title" content="SCO">
 <style>
   * { box-sizing: border-box; }
   body { font-family: Arial, sans-serif; margin: 0; background: #f4f6f8; color: #222; }
   header { background: #1e3a5f; color: white; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; }
   header h1 { margin: 0; font-size: 20px; }
   #logoutBtn { background: #ff6b6b; border: none; color: white; padding: 8px 14px; border-radius: 4px; cursor: pointer; }
-  .container { max-width: 900px; margin: 40px auto; padding: 0 16px; }
+  .container { max-width: 700px; margin: 40px auto; padding: 0 16px; }
   .card { background: white; padding: 24px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
   input, select { padding: 8px; margin: 4px 0; width: 100%; border: 1px solid #ccc; border-radius: 4px; }
   button { background: #1e3a5f; color: white; border: none; padding: 10px 16px; border-radius: 4px; cursor: pointer; margin-top: 8px; }
   button:hover { opacity: 0.9; }
-  button.danger { background: #ff6b6b; }
   table { width: 100%; border-collapse: collapse; margin-top: 12px; }
   th, td { text-align: left; padding: 8px; border-bottom: 1px solid #eee; }
   .error { color: #c0392b; margin-top: 8px; }
   .success { color: #27ae60; margin-top: 8px; }
-  nav { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
-  nav button { background: #dce3ea; color: #1e3a5f; }
-  nav button.active { background: #1e3a5f; color: white; }
   .hidden { display: none; }
   form { display: flex; flex-direction: column; gap: 4px; max-width: 400px; }
-  .row { display: flex; gap: 8px; }
-  .row > * { flex: 1; }
-  textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; min-height: 60px; }
-  .remarkRow { display: flex; gap: 12px; align-items: flex-start; margin: 4px 0 16px 0; }
-  .remarkRow textarea { flex: 1; min-height: 60px; }
-  .signatureBoxWrap { width: 160px; flex-shrink: 0; text-align: center; }
-  .signatureBox { width: 160px; height: 60px; border: 1px solid #000; background: #fff; }
-  .signatureLabel { font-size: 11px; color: #555; margin-top: 2px; }
-  .hint { font-size: 12px; color: #777; margin: 2px 0 8px 0; }
-  @media print {
-    body * { visibility: hidden; }
-    .printable, .printable * { visibility: visible; }
-    .printable { position: absolute; left: 0; top: 0; width: 100%; }
-    .no-print { display: none !important; }
-  }
 </style>
 </head>
 <body>
@@ -53,12 +34,12 @@
 <!-- ===== LOGIN SCREEN ===== -->
 <div id="loginScreen" class="container">
   <div class="card">
-    <h2>Admin Login</h2>
+    <h1>Teacher Login</h1>
     <form id="loginForm">
       <label>School ID</label>
       <input type="number" id="loginSchoolId" required>
-      <label>Username</label>
-      <input type="text" id="loginUsername" required>
+      <label>Serial Number (username)</label>
+      <input type="text" id="loginSerial" required>
       <label>Password</label>
       <input type="password" id="loginPassword" required>
       <button type="submit">Log In</button>
@@ -67,301 +48,63 @@
   </div>
 </div>
 
-<!-- ===== DASHBOARD (hidden until logged in) ===== -->
-<div id="dashboard" class="container hidden">
-  <div class="card" style="display:flex; justify-content:space-between; align-items:center;">
-    <h1 style="margin:0; font-size:20px; color:#1e3a5f;">School Admin</h1>
-    <button style="background:#ff6b6b;" onclick="logout()">Log Out</button>
-  </div>
+<!-- ===== FORCED PASSWORD RESET ===== -->
+<div id="resetScreen" class="container hidden">
   <div class="card">
-    <nav id="mainNav">
-      <button data-tab="classes" class="active">Classes</button>
-      <button data-tab="learners">Learners</button>
-      <button data-tab="subjects">Subjects</button>
-      <button data-tab="teachers">Teachers</button>
-      <button data-tab="assignments">Assignments</button>
-      <button data-tab="exams">Exams</button>
-      <button data-tab="grading">Grading</button>
-      <button data-tab="marksheet">Mark Sheet</button>
-      <button data-tab="analysis">Analysis</button>
-      <button data-tab="report">Report</button>
-    </nav>
+    <h1>Set a New Password</h1>
+    <p>This is your first login. Please set a new password only you know.</p>
+    <form id="resetForm">
+      <label>New Password</label>
+      <input type="password" id="newPassword" required minlength="4">
+      <button type="submit">Save New Password</button>
+    </form>
+    <div id="resetMsg" class="error"></div>
+  </div>
+</div>
 
-    <!-- CLASSES TAB -->
-    <div id="tab-classes" class="tab">
-      <h2>Classes</h2>
-      <form id="classForm" class="row">
-        <input type="text" id="classGrade" placeholder="Grade (e.g. Baby Class, PP1, PP2, or 1-9)" required>
-        <input type="text" id="classStreamName" placeholder="Class name e.g. Grade 4 Blue" required>
-        <button type="submit">Add Class</button>
-      </form>
-      <div id="classMsg"></div>
-      <table id="classTable">
-        <thead><tr><th>Grade</th><th>Class Name</th><th></th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
+<!-- ===== DASHBOARD ===== -->
+<div id="dashboard" class="container hidden">
+  <header style="margin: -40px -16px 20px -16px; border-radius: 0;">
+    <h1>Teacher Portal</h1>
+    <button id="logoutBtn" onclick="logout()">Log Out</button>
+  </header>
 
-    <!-- LEARNERS TAB -->
-    <div id="tab-learners" class="tab hidden">
-      <h2>Learners</h2>
-      <label>Select class to view/add learners:</label>
-      <select id="learnerClassSelect"></select>
-      <form id="learnerForm">
-        <div class="row">
-          <input type="text" id="learnerName" placeholder="Full Name" required>
-          <select id="learnerSex" required>
-            <option value="">Sex</option>
-            <option value="M">Male</option>
-            <option value="F">Female</option>
-          </select>
-        </div>
-        <div class="row">
-          <input type="text" id="learnerUpi" placeholder="ULI Number" required>
-          <input type="text" id="learnerAdmission" placeholder="Admission Number" required>
-        </div>
-        <input type="text" id="learnerAssessment" placeholder="Assessment Number">
-        <button type="submit">Add Learner</button>
-      </form>
-      <div id="learnerMsg"></div>
-      <table id="learnerTable">
-        <thead><tr><th>Name</th><th>Sex</th><th>ULI</th><th>Admission #</th><th></th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
+  <div class="card">
+    <h2>Enter Marks</h2>
+    <p>Choose your subject/class, then an open assessment.</p>
+    <select id="assignmentSelect"></select>
+    <label style="margin-top:8px;">Assessment</label>
+    <select id="assessmentSelect"></select>
+    <label style="margin-top:8px;">Test marked out of</label>
+    <input type="number" id="totalMarksInput" value="100" min="1">
+    <button onclick="loadMarksEntry()">Load Learners</button>
+    <div id="marksMsg"></div>
+  </div>
 
-    <!-- SUBJECTS TAB -->
-    <div id="tab-subjects" class="tab hidden">
-      <h2>Subjects</h2>
-      <form id="subjectForm" class="row">
-        <input type="text" id="subjectGrade" placeholder="Grade (e.g. Baby Class, PP1, PP2, or 1-9)" required>
-        <input type="text" id="subjectName" placeholder="Subject name (type it)" required>
-        <button type="submit">Add Subject</button>
-      </form>
-      <div id="subjectMsg"></div>
-      <table id="subjectTable">
-        <thead><tr><th>Grade</th><th>Subject</th><th></th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-
-    <!-- TEACHERS TAB -->
-    <div id="tab-teachers" class="tab hidden">
-      <h2>Teachers</h2>
-      <form id="teacherForm" class="row">
-        <input type="text" id="teacherSerial" placeholder="Serial Number (e.g. T001)" required>
-        <input type="text" id="teacherName" placeholder="Full Name" required>
-        <button type="submit">Add Teacher</button>
-      </form>
-      <div id="teacherMsg"></div>
-      <table id="teacherTable">
-        <thead><tr><th>Serial #</th><th>Name</th><th>Status</th><th></th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-
-    <!-- ASSIGNMENTS TAB -->
-    <div id="tab-assignments" class="tab hidden">
-      <h2>Teacher Assignments</h2>
-      <p>Choose which subject and class each teacher is allowed to enter marks for.</p>
-      <form id="assignForm" class="row">
-        <select id="assignTeacher"></select>
-        <select id="assignClass"></select>
-        <select id="assignSubject"></select>
-        <button type="submit">Assign</button>
-      </form>
-      <div id="assignMsg"></div>
-      <table id="assignmentTable">
-        <thead><tr><th>Teacher</th><th>Subject</th><th>Class</th><th></th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-
-    <!-- EXAMS TAB -->
-    <div id="tab-exams" class="tab hidden">
-      <h2>Exam Sessions</h2>
-      <p>Open an exam session so teachers can enter marks. Close it when done — only you can edit marks after that.</p>
-      <form id="examForm" class="row">
-        <input type="text" id="examName" placeholder="e.g. Term 2 Mid-Term 2026" required>
-        <button type="submit">Create Exam Session</button>
-      </form>
-      <div id="examMsg"></div>
-      <table id="examTable">
-        <thead><tr><th>Name</th><th>Status</th><th></th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-
-    <!-- GRADING TAB -->
-    <div id="tab-grading" class="tab hidden">
-      <h2>Grading System</h2>
-      <p>Set the score ranges for each grade letter / performance level, e.g. 80-100 = EE. This applies to mark sheets, analysis, and reports.</p>
-      <form id="gradingForm" class="row">
-        <input type="number" id="gradeMin" placeholder="Min score" required>
-        <input type="number" id="gradeMax" placeholder="Max score" required>
-        <input type="text" id="gradeLetter" placeholder="Letter (e.g. EE)" required>
-        <input type="number" id="gradePoints" placeholder="Points (e.g. 4)" step="0.1" required>
-        <button type="submit">Add</button>
-      </form>
-      <div id="gradingMsg"></div>
-      <table id="gradingTable">
-        <thead><tr><th>Range</th><th>Letter</th><th>Points</th><th></th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-
-    <!-- MARK SHEET TAB -->
-    <div id="tab-marksheet" class="tab hidden">
-      <h2 id="marksheetSchoolHeader" style="text-align:center;"></h2>
-      <h2>Mark Sheet</h2>
-      <p>Click any score to correct it yourself (works even after the exam session is closed).</p>
-      <div class="row">
-        <select id="marksheetClassSelect"></select>
-        <select id="marksheetExamSelect"></select>
-        <button onclick="loadMarksheet()">Load Mark Sheet</button>
-        <button onclick="downloadArea('marksheetPrintArea', 'marksheet.pdf')">Download Mark Sheet (PDF)</button>
-      </div>
-      <div id="marksheetMsg"></div>
-      <div id="marksheetPrintArea">
-        <h2 id="marksheetSchoolHeader2" style="text-align:center;"></h2>
-        <h3 id="marksheetClassLine" style="text-align:center;"></h3>
-        <h3 id="marksheetExamLine" style="text-align:center;"></h3>
-        <div id="marksheetContainer" style="overflow-x:auto;"></div>
-      </div>
-    </div>
-
-    <!-- ANALYSIS TAB -->
-    <div id="tab-analysis" class="tab hidden">
-      <h2>Results Analysis</h2>
-      <div class="row">
-        <select id="analysisClassSelect"></select>
-        <select id="analysisExamSelect"></select>
-        <button onclick="loadAnalysis()">Run Analysis</button>
-        <button onclick="downloadArea('analysisPrintArea', 'analysis.pdf')">Download Analysis (PDF)</button>
-      </div>
-      <div id="analysisMsg"></div>
-      <div id="analysisPrintArea">
-        <h2 id="analysisSchoolHeader" style="text-align:center;"></h2>
-        <h3 id="analysisClassLine" style="text-align:center;"></h3>
-        <h3 id="analysisExamLine" style="text-align:center;"></h3>
-        <div id="classTrendBox"></div>
-        <h3>Learner Ranking (best to worst), with each subject shown</h3>
-        <div id="learnerRankContainer" style="overflow-x:auto;"></div>
-        <h3>Most Improved Learners (vs previous exam)</h3>
-        <table id="improvedTable">
-          <thead><tr><th>Position</th><th>Name</th><th>Previous Average</th><th>Current Average</th><th>Change</th></tr></thead>
-          <tbody></tbody>
-        </table>
-        <h3>Subject Ranking (best to worst, by mean)</h3>
-        <table id="subjectRankTable">
-          <thead><tr><th>Subject</th><th>Average Score</th><th>Performance Level</th></tr></thead>
-          <tbody></tbody>
-        </table>
-        <div style="page-break-before: always; padding-top: 20px;">
-          <h3>Grade Distribution (by learner average)</h3>
-          <table id="gradeDistributionTable">
-            <thead><tr><th>Grade</th><th>Score Range</th><th>Points</th><th>Number of Students</th></tr></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- REPORT TAB -->
-    <div id="tab-report" class="tab hidden">
-      <h2>Individual Learner Report</h2>
-      <div class="row no-print">
-        <select id="reportClassSelect"></select>
-        <select id="reportLearnerSelect"></select>
-        <select id="reportExamSelect"></select>
-        <button onclick="loadReport()">Generate Report</button>
-      </div>
-      <div class="row no-print">
-        <button onclick="generateAllClassReports()">Generate All Reports for This Class</button>
-        <button onclick="downloadAllClassReports()">Download All Reports (PDF)</button>
-      </div>
-      <div id="reportMsg" class="no-print"></div>
-      <div id="bulkReportMsg" class="no-print"></div>
-
-      <div id="reportOutput" class="printable" style="display:none; margin-top:20px; border:1px solid #ddd; padding:20px; border-radius:8px;">
-        <h2 id="reportSchoolHeader" style="text-align:center;"></h2>
-        <h3 id="reportClassLine" style="text-align:center;"></h3>
-        <h3 id="reportExamLine" style="text-align:center;"></h3>
-        <h2 id="reportLearnerName"></h2>
-        <p id="reportLearnerMeta"></p>
-        <table id="reportSubjectsTable">
-          <thead><tr><th>Subject</th><th>Score</th><th>Grade</th><th>Teacher's Comment</th></tr></thead>
-          <tbody></tbody>
-        </table>
-        <p id="reportPosition" style="font-weight:bold;"></p>
-        <p id="reportTotalPoints" style="font-weight:bold;"></p>
-        <h3>Performance Over Time</h3>
-        <div id="reportGraph"></div>
-        <div class="row">
-          <div style="flex:1;">
-            <label>Term Opening Date</label>
-            <input type="date" id="termOpenDate">
-            <div style="border-bottom:1px solid #000; height:20px; margin-top:4px;"></div>
-          </div>
-          <div style="flex:1;">
-            <label>Term Closing Date</label>
-            <input type="date" id="termCloseDate">
-            <div style="border-bottom:1px solid #000; height:20px; margin-top:4px;"></div>
-          </div>
-        </div>
-        <h3>Remarks &amp; Signatures</h3>
-        <div class="hint no-print">Class Teacher's and Head Teacher's remarks are filled in automatically based on the learner's average for this exam. Edit the wording if you want, then click Save Remarks.</div>
-
-        <label>Class Teacher's Remark</label>
-        <div class="remarkRow">
-          <textarea id="classTeacherRemark"></textarea>
-          <div class="signatureBoxWrap">
-            <div class="signatureBox"></div>
-            <div class="signatureLabel">Class Teacher's Signature</div>
-          </div>
-        </div>
-
-        <label>Head Teacher's Remark</label>
-        <div class="remarkRow">
-          <textarea id="headTeacherRemark"></textarea>
-          <div class="signatureBoxWrap">
-            <div class="signatureBox"></div>
-            <div class="signatureLabel">Head Teacher's Signature</div>
-          </div>
-        </div>
-
-        <label>Parent/Guardian's Remark</label>
-        <div class="remarkRow">
-          <textarea id="parentRemark"></textarea>
-          <div class="signatureBoxWrap">
-            <div class="signatureBox"></div>
-            <div class="signatureLabel">Parent/Guardian's Signature</div>
-          </div>
-        </div>
-
-        <div id="reportKeyBox"></div>
-
-        <div class="no-print">
-          <button onclick="saveRemarks()">Save Remarks</button>
-          <button onclick="window.print()">Print Report</button>
-          <button onclick="downloadArea('reportOutput', 'learner_report.pdf')">Download Report (PDF)</button>
-        </div>
-      </div>
-      <div id="bulkReportContainer" style="display:none;"></div>
-    </div>
+  <div class="card" id="marksCard" style="display:none;">
+    <h3 id="marksHeader"></h3>
+    <p id="totalMarksHint" style="font-size:12px; color:#777; margin:-4px 0 8px 0;"></p>
+    <table id="marksTable">
+      <thead><tr><th>Name</th><th>Admission #</th><th>Score</th><th>Comment</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <p id="subjectMeanDisplay" style="font-weight:bold; margin-top:12px;"></p>
+    <p style="font-weight:bold; margin:12px 0 4px 0;">Learners per Performance Level</p>
+    <table id="subjectDistributionTable" style="max-width:420px;">
+      <thead><tr><th>Grade</th><th>Score Range</th><th>Number of Learners</th></tr></thead>
+      <tbody></tbody>
+    </table>
   </div>
 </div>
 
 <script>
-// ====== CONFIG ======
 const API_BASE = 'https://school-sis-fawn.vercel.app';
 
-// ====== TOKEN HELPERS ======
-function saveToken(token) { localStorage.setItem('sis_token', token); }
-function getToken() { return localStorage.getItem('sis_token'); }
-function clearToken() { localStorage.removeItem('sis_token'); }
+function saveToken(token) { localStorage.setItem('sis_teacher_token', token); }
+function getToken() { return localStorage.getItem('sis_teacher_token'); }
+function clearToken() { localStorage.removeItem('sis_teacher_token'); }
+let savedSchoolId = null;
 
-// ====== API HELPER ======
 async function api(path, options = {}) {
   const headers = options.headers || {};
   headers['Content-Type'] = 'application/json';
@@ -380,31 +123,71 @@ async function api(path, options = {}) {
   return data;
 }
 
-// ====== LOGIN ======
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const school_id = Number(document.getElementById('loginSchoolId').value);
-  const username = document.getElementById('loginUsername').value;
+  const serial_number = document.getElementById('loginSerial').value;
   const password = document.getElementById('loginPassword').value;
   const errorBox = document.getElementById('loginError');
   errorBox.textContent = '';
   try {
-    const data = await api('/api/login/admin', {
+    const data = await api('/api/login/teacher', {
       method: 'POST',
-      body: JSON.stringify({ school_id, username, password })
+      body: JSON.stringify({ school_id, serial_number, password })
     });
     saveToken(data.token);
-    showDashboard();
+    savedSchoolId = school_id;
+    if (data.must_reset_password) {
+      document.getElementById('loginScreen').classList.add('hidden');
+      document.getElementById('resetScreen').classList.remove('hidden');
+    } else {
+      showDashboard();
+    }
   } catch (err) {
     errorBox.textContent = err.message;
   }
 });
 
+document.getElementById('resetForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const new_password = document.getElementById('newPassword').value;
+  const msg = document.getElementById('resetMsg');
+  try {
+    await api('/api/teacher/reset-password', { method: 'POST', body: JSON.stringify({ new_password }) });
+    document.getElementById('resetScreen').classList.add('hidden');
+    showDashboard();
+  } catch (err) {
+    msg.textContent = err.message;
+  }
+});
+
+let currentGradingBands = [];
+async function loadGradingBandsForTeacher() {
+  try {
+    currentGradingBands = await api('/api/grading-bands');
+  } catch (err) {
+    currentGradingBands = [];
+  }
+}
+
+let sessionCheckInterval = null;
+function showDashboard() {
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('resetScreen').classList.add('hidden');
+  document.getElementById('dashboard').classList.remove('hidden');
+  loadAssignments();
+  loadAssessmentSessions();
+  loadGradingBandsForTeacher();
+  if (sessionCheckInterval) clearInterval(sessionCheckInterval);
+  sessionCheckInterval = setInterval(() => { api('/api/session-check').catch(() => {}); }, 20000);
+  resetInactivityTimer();
+}
+
 function logout() {
   clearToken();
   clearTimeout(inactivityTimer);
-  if (sessionCheckInterval) clearInterval(sessionCheckInterval);
   document.getElementById('dashboard').classList.add('hidden');
+  document.getElementById('resetScreen').classList.add('hidden');
   document.getElementById('loginScreen').classList.remove('hidden');
 }
 
@@ -425,872 +208,160 @@ function resetInactivityTimer() {
   document.addEventListener(evt, resetInactivityTimer);
 });
 
-let sessionCheckInterval = null;
-function showDashboard() {
-  document.getElementById('loginScreen').classList.add('hidden');
-  document.getElementById('dashboard').classList.remove('hidden');
-  loadClasses();
-  loadSubjects();
-  loadTeachers();
-  loadAssignments();
-  loadExams();
-  loadGradingBands();
-  loadSchoolInfo();
-  if (sessionCheckInterval) clearInterval(sessionCheckInterval);
-  sessionCheckInterval = setInterval(() => { api('/api/session-check').catch(() => {}); }, 20000);
-  resetInactivityTimer();
-}
-
 if (getToken()) showDashboard();
 
-// ====== TAB SWITCHING ======
-document.getElementById('mainNav').addEventListener('click', (e) => {
-  if (e.target.tagName !== 'BUTTON') return;
-  const tab = e.target.dataset.tab;
-  document.querySelectorAll('#mainNav button').forEach(b => b.classList.remove('active'));
-  e.target.classList.add('active');
-  document.querySelectorAll('.tab').forEach(t => t.classList.add('hidden'));
-  document.getElementById('tab-' + tab).classList.remove('hidden');
-});
-
-// ====== PRINT / DOWNLOAD HELPERS ======
-function printArea(id) {
-  const el = document.getElementById(id);
-  document.querySelectorAll('.printable').forEach(p => { if (p.id !== id) p.classList.remove('printable'); });
-  if (!el.classList.contains('printable')) el.classList.add('printable');
-  window.print();
-}
-
-function downloadArea(id, filename) {
-  const el = document.getElementById(id);
-  html2pdf().from(el).set({
-    margin: 10,
-    filename: filename,
-    html2canvas: { scale: 2 },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
-  }).save();
-}
-
-function formatGrade(g) {
-  if (g === 'Baby Class' || g === 'PP1' || g === 'PP2') return g;
-  return 'Grade ' + g;
-}
-
-// ====== CLASSES ======
-let currentClasses = [];
-async function loadClasses() {
-  try {
-    const classes = await api('/api/classes');
-    currentClasses = classes;
-    const tbody = document.querySelector('#classTable tbody');
-    tbody.innerHTML = '';
-    const select = document.getElementById('learnerClassSelect');
-    select.innerHTML = '';
-    classes.forEach(c => {
-      tbody.innerHTML += `<tr><td>${formatGrade(c.grade)}</td><td>${c.stream_name}</td>
-        <td><button onclick="editClass(${c.id})">Edit</button></td></tr>`;
-      select.innerHTML += `<option value="${c.id}">${c.stream_name} (${formatGrade(c.grade)})</option>`;
-    });
-    if (classes.length) loadLearners(select.value);
-    populateAssignmentSelects();
-    populateMarksheetSelects();
-    populateReportClassSelect();
-  } catch (err) {
-    document.getElementById('classMsg').innerHTML = `<div class="error">${err.message}</div>`;
-  }
-}
-
-function editClass(id) {
-  const c = currentClasses.find(x => x.id === id);
-  if (!c) return;
-  const grade = prompt('Grade (e.g. Baby Class, PP1, PP2, or 1-9):', c.grade);
-  if (grade === null) return;
-  const stream_name = prompt('Class name:', c.stream_name);
-  if (stream_name === null) return;
-  api(`/api/classes/${id}`, { method: 'PATCH', body: JSON.stringify({ grade: grade, stream_name }) })
-    .then(loadClasses)
-    .catch(err => alert(err.message));
-}
-
-document.getElementById('classForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const grade = document.getElementById('classGrade').value;
-  const stream_name = document.getElementById('classStreamName').value;
-  const msg = document.getElementById('classMsg');
-  try {
-    await api('/api/classes', { method: 'POST', body: JSON.stringify({ grade, stream_name }) });
-    msg.innerHTML = '<div class="success">Class added.</div>';
-    e.target.reset();
-    loadClasses();
-  } catch (err) {
-    msg.innerHTML = `<div class="error">${err.message}</div>`;
-  }
-});
-
-// ====== LEARNERS ======
-document.getElementById('learnerClassSelect').addEventListener('change', (e) => {
-  loadLearners(e.target.value);
-});
-
-let currentLearners = [];
-async function loadLearners(classId) {
-  if (!classId) return;
-  try {
-    const learners = await api(`/api/classes/${classId}/list`);
-    currentLearners = learners;
-    const tbody = document.querySelector('#learnerTable tbody');
-    tbody.innerHTML = '';
-    learners.forEach(l => {
-      tbody.innerHTML += `<tr>
-        <td>${l.name}</td><td>${l.sex || ''}</td><td>${l.upi_number}</td><td>${l.admission_number}</td>
-        <td><button onclick="editLearner(${l.id}, ${classId})">Edit</button>
-        <button class="danger" onclick="deleteLearner(${l.id}, ${classId})">Delete</button></td>
-      </tr>`;
-    });
-  } catch (err) {
-    document.getElementById('learnerMsg').innerHTML = `<div class="error">${err.message}</div>`;
-  }
-}
-
-function editLearner(id, classId) {
-  const l = currentLearners.find(x => x.id === id);
-  if (!l) return;
-  const name = prompt('Full name:', l.name);
-  if (name === null) return;
-  const sex = prompt('Sex (M or F):', l.sex || '');
-  if (sex === null) return;
-  const upi_number = prompt('ULI number:', l.upi_number);
-  if (upi_number === null) return;
-  const admission_number = prompt('Admission number:', l.admission_number);
-  if (admission_number === null) return;
-  const assessment_number = prompt('Assessment number:', l.assessment_number || '');
-  if (assessment_number === null) return;
-  api(`/api/learners/${id}`, { method: 'PATCH', body: JSON.stringify({ name, sex, upi_number, admission_number, assessment_number }) })
-    .then(() => loadLearners(classId))
-    .catch(err => alert(err.message));
-}
-
-document.getElementById('learnerForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const class_id = Number(document.getElementById('learnerClassSelect').value);
-  const msg = document.getElementById('learnerMsg');
-  if (!class_id) { msg.innerHTML = '<div class="error">Add a class first.</div>'; return; }
-  const body = {
-    class_id,
-    name: document.getElementById('learnerName').value,
-    sex: document.getElementById('learnerSex').value,
-    upi_number: document.getElementById('learnerUpi').value,
-    admission_number: document.getElementById('learnerAdmission').value,
-    assessment_number: document.getElementById('learnerAssessment').value
-  };
-  try {
-    await api('/api/learners', { method: 'POST', body: JSON.stringify(body) });
-    msg.innerHTML = '<div class="success">Learner added.</div>';
-    e.target.reset();
-    loadLearners(class_id);
-  } catch (err) {
-    msg.innerHTML = `<div class="error">${err.message}</div>`;
-  }
-});
-
-async function deleteLearner(id, classId) {
-  if (!confirm('Remove this learner?')) return;
-  try {
-    await api(`/api/learners/${id}`, { method: 'DELETE' });
-    loadLearners(classId);
-  } catch (err) {
-    alert(err.message);
-  }
-}
-
-// ====== SUBJECTS ======
-let currentSubjects = [];
-async function loadSubjects() {
-  try {
-    const subjects = await api('/api/subjects');
-    currentSubjects = subjects;
-    const tbody = document.querySelector('#subjectTable tbody');
-    tbody.innerHTML = '';
-    subjects.forEach(s => {
-      tbody.innerHTML += `<tr><td>${formatGrade(s.grade)}</td><td>${s.name}</td>
-        <td><button onclick="editSubject(${s.id})">Edit</button>
-        <button class="danger" onclick="deleteSubject(${s.id})">Delete</button></td></tr>`;
-    });
-    populateAssignmentSelects();
-  } catch (err) {
-    document.getElementById('subjectMsg').innerHTML = `<div class="error">${err.message}</div>`;
-  }
-}
-
-function editSubject(id) {
-  const s = currentSubjects.find(x => x.id === id);
-  if (!s) return;
-  const grade = prompt('Grade (e.g. Baby Class, PP1, PP2, or 1-9):', s.grade);
-  if (grade === null) return;
-  const name = prompt('Subject name:', s.name);
-  if (name === null) return;
-  api(`/api/subjects/${id}`, { method: 'PATCH', body: JSON.stringify({ grade: grade, name }) })
-    .then(loadSubjects)
-    .catch(err => alert(err.message));
-}
-
-document.getElementById('subjectForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const grade = document.getElementById('subjectGrade').value;
-  const name = document.getElementById('subjectName').value;
-  const msg = document.getElementById('subjectMsg');
-  try {
-    await api('/api/subjects', { method: 'POST', body: JSON.stringify({ grade, name }) });
-    msg.innerHTML = '<div class="success">Subject added.</div>';
-    e.target.reset();
-    loadSubjects();
-  } catch (err) {
-    msg.innerHTML = `<div class="error">${err.message}</div>`;
-  }
-});
-
-async function deleteSubject(id) {
-  if (!confirm('Remove this subject?')) return;
-  try {
-    await api(`/api/subjects/${id}`, { method: 'DELETE' });
-    loadSubjects();
-  } catch (err) {
-    alert(err.message);
-  }
-}
-
-// ====== TEACHERS ======
-let currentTeachers = [];
-async function loadTeachers() {
-  try {
-    const teachers = await api('/api/teachers');
-    currentTeachers = teachers;
-    const tbody = document.querySelector('#teacherTable tbody');
-    tbody.innerHTML = '';
-    teachers.forEach(t => {
-      tbody.innerHTML += `<tr>
-        <td>${t.serial_number}</td><td>${t.full_name}</td><td>${t.active ? 'Active' : 'Inactive'}</td>
-        <td><button class="danger" onclick="toggleTeacher(${t.id}, ${!t.active})">${t.active ? 'Deactivate' : 'Reactivate'}</button></td>
-      </tr>`;
-    });
-    populateAssignmentSelects();
-  } catch (err) {
-    document.getElementById('teacherMsg').innerHTML = `<div class="error">${err.message}</div>`;
-  }
-}
-
-document.getElementById('teacherForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const serial_number = document.getElementById('teacherSerial').value;
-  const full_name = document.getElementById('teacherName').value;
-  const msg = document.getElementById('teacherMsg');
-  try {
-    const result = await api('/api/teachers', { method: 'POST', body: JSON.stringify({ serial_number, full_name }) });
-    msg.innerHTML = `<div class="success">Teacher added. Login — username: <b>${result.username}</b>, temporary password: <b>${result.temp_password}</b>. Give these to the teacher; they'll be asked to change the password on first login.</div>`;
-    e.target.reset();
-    loadTeachers();
-  } catch (err) {
-    msg.innerHTML = `<div class="error">${err.message}</div>`;
-  }
-});
-
-async function toggleTeacher(id, newActive) {
-  try {
-    await api(`/api/teachers/${id}/active`, { method: 'PATCH', body: JSON.stringify({ active: newActive }) });
-    loadTeachers();
-  } catch (err) {
-    alert(err.message);
-  }
-}
-
-// ====== TEACHER ASSIGNMENTS ======
-function populateAssignmentSelects() {
-  const teacherSelect = document.getElementById('assignTeacher');
-  if (!teacherSelect) return;
-  teacherSelect.innerHTML = currentTeachers.map(t => `<option value="${t.id}">${t.full_name} (${t.serial_number})</option>`).join('');
-  const classSelect = document.getElementById('assignClass');
-  classSelect.innerHTML = currentClasses.map(c => `<option value="${c.id}" data-grade="${c.grade}">${c.stream_name} (${formatGrade(c.grade)})</option>`).join('');
-  updateAssignSubjects();
-}
-
-function updateAssignSubjects() {
-  const classSelect = document.getElementById('assignClass');
-  const selectedOption = classSelect.options[classSelect.selectedIndex];
-  const grade = selectedOption ? selectedOption.dataset.grade : null;
-  const subjectSelect = document.getElementById('assignSubject');
-  subjectSelect.innerHTML = currentSubjects.filter(s => String(s.grade) === String(grade))
-    .map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-}
-
-document.getElementById('assignClass').addEventListener('change', updateAssignSubjects);
-
+let myAssignments = [];
 async function loadAssignments() {
   try {
-    const rows = await api('/api/teacher-assignments');
-    const tbody = document.querySelector('#assignmentTable tbody');
+    myAssignments = await api('/api/teacher-assignments/mine');
+    const select = document.getElementById('assignmentSelect');
+    select.innerHTML = myAssignments.map((a, i) =>
+      `<option value="${i}">${a.subject_name} - ${a.stream_name} (Grade ${a.grade})</option>`
+    ).join('');
+    if (!myAssignments.length) {
+      document.getElementById('marksMsg').innerHTML = '<div class="error">You have no subjects assigned yet. Ask your admin to assign you a subject and class.</div>';
+    }
+  } catch (err) {
+    document.getElementById('marksMsg').innerHTML = `<div class="error">${err.message}</div>`;
+  }
+}
+
+async function loadAssessmentSessions() {
+  try {
+    const assessments = await api('/api/exam-sessions');
+    const select = document.getElementById('assessmentSelect');
+    select.innerHTML = assessments.map(a => `<option value="${a.id}">${a.name}${a.is_open ? ' (OPEN)' : ' (closed)'}</option>`).join('');
+  } catch (err) {
+    document.getElementById('marksMsg').innerHTML = `<div class="error">${err.message}</div>`;
+  }
+}
+
+async function loadMarksEntry() {
+  const idx = document.getElementById('assignmentSelect').value;
+  const assessmentId = document.getElementById('assessmentSelect').value;
+  const msg = document.getElementById('marksMsg');
+  if (idx === '' || !assessmentId) {
+    msg.innerHTML = '<div class="error">Choose a subject/class and assessment.</div>';
+    return;
+  }
+
+  const assignment = myAssignments[idx];
+  try {
+    const learners = await api(`/api/classes/${assignment.class_id}/list`);
+    const marksheet = await api(`/api/marksheet/${assignment.class_id}/${assessmentId}`);
+    const subjIndex = marksheet.subjects.findIndex(s => s.id === assignment.subject_id);
+
+    document.getElementById('marksHeader').textContent =
+      `${assignment.subject_name} - ${assignment.stream_name}`;
+    const tbody = document.querySelector('#marksTable tbody');
     tbody.innerHTML = '';
-    rows.forEach(a => {
-      tbody.innerHTML += `<tr><td>${a.teacher_name}</td><td>${a.subject_name}</td><td>${a.stream_name} (${formatGrade(a.grade)})</td>
-        <td><button class="danger" onclick="deleteAssignment(${a.id})">Remove</button></td></tr>`;
+    const totalMarksAtLoad = Number(document.getElementById('totalMarksInput').value) || 100;
+    marksheet.rows.forEach(row => {
+      const score = subjIndex >= 0 ? row.scores[subjIndex] : null;
+      const comment = subjIndex >= 0 && row.comments ? row.comments[subjIndex] : '';
+      tbody.innerHTML += `<tr>
+        <td>${row.learner.name}</td>
+        <td>${row.learner.admission_number || '-'}</td>
+        <td><input type="number" id="score-${row.learner.id}" value="${score === null ? '' : score}" min="1" max="${totalMarksAtLoad}"
+            onchange="submitMarkRow(${row.learner.id}, ${assignment.subject_id}, ${assessmentId})"></td>
+        <td><input type="text" id="comment-${row.learner.id}" value="${comment || ''}" placeholder="Optional comment"
+            onchange="submitMarkRow(${row.learner.id}, ${assignment.subject_id}, ${assessmentId})"></td>
+      </tr>`;
     });
-  } catch (err) {
-    document.getElementById('assignMsg').innerHTML = `<div class="error">${err.message}</div>`;
-  }
-}
-
-document.getElementById('assignForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const teacher_id = Number(document.getElementById('assignTeacher').value);
-  const class_id = Number(document.getElementById('assignClass').value);
-  const subject_id = Number(document.getElementById('assignSubject').value);
-  const msg = document.getElementById('assignMsg');
-  try {
-    await api('/api/teacher-assignments', { method: 'POST', body: JSON.stringify({ teacher_id, class_id, subject_id }) });
-    msg.innerHTML = '<div class="success">Assigned.</div>';
-    loadAssignments();
-  } catch (err) {
-    msg.innerHTML = `<div class="error">${err.message}</div>`;
-  }
-});
-
-async function deleteAssignment(id) {
-  if (!confirm('Remove this assignment?')) return;
-  try {
-    await api(`/api/teacher-assignments/${id}`, { method: 'DELETE' });
-    loadAssignments();
-  } catch (err) {
-    alert(err.message);
-  }
-}
-
-// ====== EXAM SESSIONS ======
-let currentExams = [];
-async function loadExams() {
-  try {
-    const exams = await api('/api/exam-sessions');
-    currentExams = exams;
-    const tbody = document.querySelector('#examTable tbody');
-    tbody.innerHTML = '';
-    exams.forEach(ex => {
-      tbody.innerHTML += `<tr><td>${ex.name}</td><td>${ex.is_open ? 'OPEN (teachers can enter marks)' : 'Closed'}</td>
-        <td><button onclick="toggleExam(${ex.id}, ${!ex.is_open})">${ex.is_open ? 'Close' : 'Open'}</button></td></tr>`;
-    });
-    populateMarksheetSelects();
-    populateAnalysisSelect();
-    populateReportExamSelect();
-  } catch (err) {
-    document.getElementById('examMsg').innerHTML = `<div class="error">${err.message}</div>`;
-  }
-}
-
-document.getElementById('examForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const name = document.getElementById('examName').value;
-  const msg = document.getElementById('examMsg');
-  try {
-    await api('/api/exam-sessions', { method: 'POST', body: JSON.stringify({ name }) });
-    msg.innerHTML = '<div class="success">Exam session created.</div>';
-    e.target.reset();
-    loadExams();
-  } catch (err) {
-    msg.innerHTML = `<div class="error">${err.message}</div>`;
-  }
-});
-
-async function toggleExam(id, newOpen) {
-  try {
-    await api(`/api/exam-sessions/${id}/toggle`, { method: 'PATCH', body: JSON.stringify({ is_open: newOpen }) });
-    loadExams();
-  } catch (err) {
-    alert(err.message);
-  }
-}
-
-// ====== GRADING BANDS ======
-let currentGradingBands = [];
-async function loadGradingBands() {
-  try {
-    const bands = await api('/api/grading-bands');
-    currentGradingBands = bands;
-    const tbody = document.querySelector('#gradingTable tbody');
-    tbody.innerHTML = '';
-    bands.forEach(b => {
-      tbody.innerHTML += `<tr><td>${b.min_score} - ${b.max_score}</td><td>${b.grade_letter}</td><td>${b.points}</td>
-        <td><button class="danger" onclick="deleteGradingBand(${b.id})">Delete</button></td></tr>`;
-    });
-  } catch (err) {
-    document.getElementById('gradingMsg').innerHTML = `<div class="error">${err.message}</div>`;
-  }
-}
-
-// Human-readable names for common CBC performance-level letters (EE1, ME2, etc).
-// Falls back to showing the letter itself if it isn't a recognized CBC code.
-const GRADE_LEVEL_NAMES = {
-  'EE1': 'Exceeding Expectation (Level 1)',
-  'EE2': 'Exceeding Expectation (Level 2)',
-  'EE': 'Exceeding Expectation',
-  'ME1': 'Meeting Expectation (Level 1)',
-  'ME2': 'Meeting Expectation (Level 2)',
-  'ME': 'Meeting Expectation',
-  'AE1': 'Approaching Expectation (Level 1)',
-  'AE2': 'Approaching Expectation (Level 2)',
-  'AE': 'Approaching Expectation',
-  'BE1': 'Below Expectation (Level 1)',
-  'BE2': 'Below Expectation (Level 2)',
-  'BE': 'Below Expectation'
-};
-
-// Builds a small "Key" block explaining every grade letter currently configured.
-function buildGradeKeyHtml(bands) {
-  if (!bands || !bands.length) return '';
-  const sorted = bands.slice().sort((a, b) => b.min_score - a.min_score);
-  const rows = sorted.map(b => {
-    const name = GRADE_LEVEL_NAMES[b.grade_letter] || b.grade_letter;
-    return `${b.grade_letter} = ${name}`;
-  }).join('<br>');
-  return `<div style="text-align:right; font-size:11px; color:#777; margin-top:24px; line-height:1.5;">
-    <strong style="font-size:12px; color:#555;">Key</strong><br>${rows}
-  </div>`;
-}
-
-document.getElementById('gradingForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const min_score = Number(document.getElementById('gradeMin').value);
-  const max_score = Number(document.getElementById('gradeMax').value);
-  const grade_letter = document.getElementById('gradeLetter').value;
-  const points = Number(document.getElementById('gradePoints').value);
-  const msg = document.getElementById('gradingMsg');
-  try {
-    await api('/api/grading-bands', { method: 'POST', body: JSON.stringify({ min_score, max_score, grade_letter, points }) });
-    msg.innerHTML = '<div class="success">Grade band added.</div>';
-    e.target.reset();
-    loadGradingBands();
-  } catch (err) {
-    msg.innerHTML = `<div class="error">${err.message}</div>`;
-  }
-});
-
-async function deleteGradingBand(id) {
-  if (!confirm('Remove this grade band?')) return;
-  try {
-    await api(`/api/grading-bands/${id}`, { method: 'DELETE' });
-    loadGradingBands();
-  } catch (err) {
-    alert(err.message);
-  }
-}
-
-// ====== MARK SHEET ======
-function populateMarksheetSelects() {
-  const classSelect = document.getElementById('marksheetClassSelect');
-  const examSelect = document.getElementById('marksheetExamSelect');
-  if (!classSelect || !examSelect) return;
-  classSelect.innerHTML = currentClasses.map(c => `<option value="${c.id}">${c.stream_name} (${formatGrade(c.grade)})</option>`).join('');
-  examSelect.innerHTML = currentExams.map(ex => `<option value="${ex.id}">${ex.name}</option>`).join('');
-}
-
-async function loadMarksheet() {
-  const classId = document.getElementById('marksheetClassSelect').value;
-  const examId = document.getElementById('marksheetExamSelect').value;
-  const container = document.getElementById('marksheetContainer');
-  const msg = document.getElementById('marksheetMsg');
-  if (!classId || !examId) { msg.innerHTML = '<div class="error">Add a class and exam session first.</div>'; return; }
-  try {
-    const data = await api(`/api/marksheet/${classId}/${examId}`);
-    document.getElementById('marksheetClassLine').textContent = `${data.class.stream_name} (${formatGrade(data.class.grade)})`;
-    const msExam = currentExams.find(ex => ex.id == examId);
-    document.getElementById('marksheetExamLine').textContent = msExam ? msExam.name : '';
-    let html = '<table><thead><tr><th>Name</th><th>Admission #</th>';
-    data.subjects.forEach(s => { html += `<th>${s.name}</th>`; });
-    html += '</tr></thead><tbody>';
-    data.rows.forEach(row => {
-      html += `<tr><td>${row.learner.name}</td><td>${row.learner.admission_number}</td>`;
-      data.subjects.forEach((s, i) => {
-        const score = row.scores[i];
-        const level = row.levels ? row.levels[i] : null;
-        const display = score === null ? '-' : `${score}${level ? ' (' + level + ')' : ''}`;
-        html += `<td style="cursor:pointer;text-decoration:underline;" onclick="editMark(${row.learner.id}, ${s.id}, ${examId}, ${score === null ? "'null'" : score})">${display}</td>`;
-      });
-      html += '</tr>';
-    });
-    html += '</tbody></table>';
-    container.innerHTML = html;
+    document.getElementById('marksCard').style.display = 'block';
+    updateTotalMarksHint();
+    updateSubjectMean();
+    updateSubjectDistribution();
     msg.innerHTML = '';
   } catch (err) {
     msg.innerHTML = `<div class="error">${err.message}</div>`;
   }
 }
 
-function editMark(learnerId, subjectId, examId, currentScore) {
-  const newScore = prompt('Enter score (01-99):', currentScore === 'null' ? '' : currentScore);
-  if (newScore === null || newScore === '') return;
-  if (Number(newScore) < 1 || Number(newScore) > 99) { alert('Score must be between 01 and 99.'); return; }
-  api('/api/marks/admin-override', {
-    method: 'PUT',
-    body: JSON.stringify({ exam_session_id: Number(examId), learner_id: learnerId, subject_id: subjectId, score: Number(newScore) })
-  }).then(loadMarksheet).catch(err => alert(err.message));
+function updateTotalMarksHint() {
+  const total = Number(document.getElementById('totalMarksInput').value) || 100;
+  const hint = document.getElementById('totalMarksHint');
+  if (!hint) return;
+  hint.textContent = total === 100
+    ? ''
+    : `Enter each learner's raw score out of ${total}. It will be saved as a percentage out of 100.`;
 }
 
-// ====== RESULTS ANALYSIS ======
-function populateAnalysisSelect() {
-  const examSelect = document.getElementById('analysisExamSelect');
-  const classSelect = document.getElementById('analysisClassSelect');
-  if (!examSelect || !classSelect) return;
-  examSelect.innerHTML = currentExams.map(ex => `<option value="${ex.id}">${ex.name}</option>`).join('');
-  classSelect.innerHTML = currentClasses.map(c => `<option value="${c.id}">${c.stream_name} (${formatGrade(c.grade)})</option>`).join('');
-}
+document.getElementById('totalMarksInput').addEventListener('change', () => {
+  const total = Number(document.getElementById('totalMarksInput').value) || 100;
+  document.querySelectorAll('#marksTable tbody input[id^="score-"]').forEach(inp => { inp.max = total; });
+  updateTotalMarksHint();
+});
 
-async function loadAnalysis() {
-  const classId = document.getElementById('analysisClassSelect').value;
-  const examId = document.getElementById('analysisExamSelect').value;
-  const msg = document.getElementById('analysisMsg');
-  if (!classId || !examId) { msg.innerHTML = '<div class="error">Add a class and exam session first.</div>'; return; }
-  try {
-    const data = await api(`/api/analysis/class/${classId}/${examId}`);
-    document.getElementById('analysisClassLine').textContent = `${data.class.stream_name} (${formatGrade(data.class.grade)})`;
-    const anExam = currentExams.find(ex => ex.id == examId);
-    document.getElementById('analysisExamLine').textContent = anExam ? anExam.name : '';
-
-    const trendBox = document.getElementById('classTrendBox');
-    if (data.classTrend) {
-      const t = data.classTrend;
-      const direction = t.change > 0 ? 'improved' : (t.change < 0 ? 'declined' : 'stayed the same');
-      const color = t.change > 0 ? '#27ae60' : (t.change < 0 ? '#c0392b' : '#555');
-      trendBox.innerHTML = `<p style="color:${color}; font-weight:bold;">
-        Class average ${direction}: ${t.previousMean.toFixed(1)} (${t.previousExamName}) &rarr; ${t.currentMean.toFixed(1)} (this exam),
-        a change of ${t.change > 0 ? '+' : ''}${t.change.toFixed(1)}.
-      </p>`;
-    } else {
-      trendBox.innerHTML = `<p style="color:#555;">No previous exam session found for this class yet, so no trend to compare.</p>`;
-    }
-
-    const distBody = document.querySelector('#gradeDistributionTable tbody');
-    distBody.innerHTML = '';
-    if (currentGradingBands.length) {
-      const sortedBands = currentGradingBands.slice().sort((a, b) => b.min_score - a.min_score);
-      sortedBands.forEach(band => {
-        const count = data.learnerRanking.filter(r => r.overallLevel === band.grade_letter).length;
-        distBody.innerHTML += `<tr><td>${band.grade_letter}</td><td>${band.min_score} - ${band.max_score}</td><td>${band.points}</td><td>${count}</td></tr>`;
-      });
-    } else {
-      distBody.innerHTML = '<tr><td colspan="4">No grading bands set up yet.</td></tr>';
-    }
-
-    const container = document.getElementById('learnerRankContainer');
-    if (data.learnerRanking.length) {
-      const subjectNames = data.learnerRanking[0].subjects.map(s => s.subject);
-      let html = '<table><thead><tr><th>Position</th><th>Name</th>';
-      subjectNames.forEach(name => { html += `<th>${name}</th>`; });
-      html += '<th>Average</th><th>Total Points</th><th>Overall Grade</th></tr></thead><tbody>';
-      data.learnerRanking.forEach(r => {
-        html += `<tr><td>${r.position}</td><td>${r.learner.name}</td>`;
-        r.subjects.forEach(s => {
-          const display = s.score === null ? '-' : `${s.score}${s.level ? ' (' + s.level + ')' : ''}`;
-          html += `<td>${display}</td>`;
-        });
-        html += `<td>${r.mean.toFixed(1)}</td><td>${r.totalPoints}</td><td>${r.overallLevel || '-'}</td></tr>`;
-      });
-      html += '</tbody></table>';
-      container.innerHTML = html;
-    } else {
-      container.innerHTML = '<p>No learners found in this class.</p>';
-    }
-
-    const improvedBody = document.querySelector('#improvedTable tbody');
-    improvedBody.innerHTML = '';
-    data.mostImproved.forEach((r, i) => {
-      const changeColor = r.improvement > 0 ? '#27ae60' : (r.improvement < 0 ? '#c0392b' : '#555');
-      improvedBody.innerHTML += `<tr><td>${i + 1}</td><td>${r.learner.name}</td><td>${r.previousMean.toFixed(1)}</td><td>${r.currentMean.toFixed(1)}</td>
-        <td style="color:${changeColor};">${r.improvement > 0 ? '+' : ''}${r.improvement.toFixed(1)}</td></tr>`;
-    });
-    if (!data.mostImproved.length) {
-      improvedBody.innerHTML = '<tr><td colspan="5">No previous exam session to compare against yet.</td></tr>';
-    }
-
-    const subjectBody = document.querySelector('#subjectRankTable tbody');
-    subjectBody.innerHTML = '';
-    data.subjectRanking.forEach(s => {
-      subjectBody.innerHTML += `<tr><td>${s.subject}</td><td>${s.mean.toFixed(1)}</td><td>${s.level || '-'}</td></tr>`;
-    });
-
-    msg.innerHTML = '';
-  } catch (err) {
-    msg.innerHTML = `<div class="error">${err.message}</div>`;
+function updateSubjectMean() {
+  const inputs = document.querySelectorAll('#marksTable tbody input[id^="score-"]');
+  const values = Array.from(inputs).map(i => i.value);
+  const validScores = values.filter(v => v !== '' && !isNaN(Number(v))).map(Number);
+  const display = document.getElementById('subjectMeanDisplay');
+  if (!validScores.length) {
+    display.textContent = 'No marks entered yet.';
+    return;
   }
+  const mean = validScores.reduce((a, b) => a + b, 0) / validScores.length;
+  display.textContent = `Subject Mean (so far): ${mean.toFixed(1)} (${validScores.length} of ${values.length} learners marked)`;
 }
 
-// ====== INDIVIDUAL REPORT ======
-function populateReportClassSelect() {
-  const classSelect = document.getElementById('reportClassSelect');
-  if (!classSelect) return;
-  classSelect.innerHTML = currentClasses.map(c => `<option value="${c.id}">${c.stream_name} (${formatGrade(c.grade)})</option>`).join('');
-  updateReportLearnerSelect();
-}
-
-function populateReportExamSelect() {
-  const examSelect = document.getElementById('reportExamSelect');
-  if (!examSelect) return;
-  examSelect.innerHTML = currentExams.map(ex => `<option value="${ex.id}">${ex.name}</option>`).join('');
-}
-
-async function updateReportLearnerSelect() {
-  const classId = document.getElementById('reportClassSelect').value;
-  const learnerSelect = document.getElementById('reportLearnerSelect');
-  if (!classId) { learnerSelect.innerHTML = ''; return; }
-  try {
-    const learners = await api(`/api/classes/${classId}/list`);
-    learnerSelect.innerHTML = learners.map(l => `<option value="${l.id}">${l.name} (${l.admission_number})</option>`).join('');
-  } catch (err) {
-    learnerSelect.innerHTML = '';
+function updateSubjectDistribution() {
+  const tbody = document.querySelector('#subjectDistributionTable tbody');
+  if (!tbody) return;
+  const inputs = document.querySelectorAll('#marksTable tbody input[id^="score-"]');
+  const validScores = Array.from(inputs).map(i => i.value).filter(v => v !== '' && !isNaN(Number(v))).map(Number);
+  tbody.innerHTML = '';
+  if (!currentGradingBands.length) {
+    tbody.innerHTML = '<tr><td colspan="3">No grading bands set up yet - ask your admin.</td></tr>';
+    return;
   }
-}
-
-document.getElementById('reportClassSelect').addEventListener('change', updateReportLearnerSelect);
-
-function buildLineGraph(history) {
-  if (!history.length) return '<p>No exam history yet for this learner.</p>';
-  const width = 600, height = 220, padTop = 20, padBottom = 40, padLeft = 40, padRight = 20;
-  const plotWidth = width - padLeft - padRight;
-  const plotHeight = height - padTop - padBottom;
-  const maxVal = 100;
-  const points = history.map((h, i) => {
-    const x = padLeft + (history.length === 1 ? plotWidth / 2 : (i / (history.length - 1)) * plotWidth);
-    const avg = Math.min(Number(h.average), 100);
-    const y = padTop + plotHeight - (avg / maxVal) * plotHeight;
-    return { x, y, label: h.exam_name, value: Number(h.average).toFixed(1) };
+  const sortedBands = currentGradingBands.slice().sort((a, b) => b.min_score - a.min_score);
+  sortedBands.forEach(band => {
+    const count = validScores.filter(s => s >= band.min_score && s <= band.max_score).length;
+    tbody.innerHTML += `<tr><td>${band.grade_letter}</td><td>${band.min_score} - ${band.max_score}</td><td>${count}</td></tr>`;
   });
-  const polylinePoints = points.map(p => `${p.x},${p.y}`).join(' ');
-  let svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="max-width:100%;">`;
-  svg += `<line x1="${padLeft}" y1="${padTop}" x2="${padLeft}" y2="${padTop + plotHeight}" stroke="#ccc"/>`;
-  svg += `<line x1="${padLeft}" y1="${padTop + plotHeight}" x2="${padLeft + plotWidth}" y2="${padTop + plotHeight}" stroke="#ccc"/>`;
-  svg += `<polyline points="${polylinePoints}" fill="none" stroke="#1e3a5f" stroke-width="2"/>`;
-  points.forEach(p => {
-    svg += `<circle cx="${p.x}" cy="${p.y}" r="4" fill="#1e3a5f"/>`;
-    svg += `<text x="${p.x}" y="${p.y - 10}" font-size="11" text-anchor="middle">${p.value}</text>`;
-    const shortLabel = p.label.length > 14 ? p.label.slice(0, 14) + '…' : p.label;
-    svg += `<text x="${p.x}" y="${padTop + plotHeight + 15}" font-size="10" text-anchor="middle">${shortLabel}</text>`;
-  });
-  svg += `</svg>`;
-  return svg;
 }
 
-let currentReportLearnerId = null;
-let currentReportExamId = null;
+async function submitMarkRow(learnerId, subjectId, assessmentId) {
+  const scoreInput = document.getElementById(`score-${learnerId}`);
+  const commentInput = document.getElementById(`comment-${learnerId}`);
+  const rawValue = scoreInput.value;
+  const comment = commentInput.value;
+  if (rawValue === '') return;
 
-async function loadReport() {
-  const learnerId = document.getElementById('reportLearnerSelect').value;
-  const examId = document.getElementById('reportExamSelect').value;
-  const msg = document.getElementById('reportMsg');
-  if (!learnerId || !examId) { msg.innerHTML = '<div class="error">Choose a class, learner, and exam session first.</div>'; return; }
-  try {
-    const data = await api(`/api/report/${learnerId}/${examId}`);
-    currentReportLearnerId = learnerId;
-    currentReportExamId = examId;
+  const total = Number(document.getElementById('totalMarksInput').value) || 100;
+  const raw = Number(rawValue);
 
-    const reportCls = currentClasses.find(c => c.id === data.learner.class_id);
-    document.getElementById('reportClassLine').textContent = reportCls ? `${reportCls.stream_name} (${formatGrade(reportCls.grade)})` : '';
-    const repExam = currentExams.find(ex => ex.id == examId);
-    document.getElementById('reportExamLine').textContent = repExam ? repExam.name : '';
-    document.getElementById('reportLearnerName').textContent = data.learner.name;
-    document.getElementById('reportLearnerMeta').textContent =
-      `Admission #: ${data.learner.admission_number} | Assessment #: ${data.learner.assessment_number || '-'} | Sex: ${data.learner.sex || '-'}`;
-
-    const subjBody = document.querySelector('#reportSubjectsTable tbody');
-    subjBody.innerHTML = '';
-    data.marks.forEach(m => {
-      const gradeLabel = m.band ? `${m.band.grade_letter} (${m.band.points} pts)` : '-';
-      subjBody.innerHTML += `<tr><td>${m.subject_name}</td><td>${m.score}</td><td>${gradeLabel}</td><td>${m.comment || ''}</td></tr>`;
-    });
-
-    document.getElementById('reportPosition').textContent =
-      `Class Position: ${data.position} out of ${data.totalInClass}`;
-    const overallLabel = data.overallBand ? data.overallBand.grade_letter : '-';
-    document.getElementById('reportTotalPoints').textContent =
-      `Total Points: ${data.totalPoints}  |  Overall Grade: ${overallLabel}`;
-
-    document.getElementById('reportGraph').innerHTML = buildLineGraph(data.history);
-    document.getElementById('reportKeyBox').innerHTML = buildGradeKeyHtml(currentGradingBands);
-
-    document.getElementById('classTeacherRemark').value = data.remark.class_teacher_remark || '';
-    document.getElementById('headTeacherRemark').value = data.remark.head_teacher_remark || '';
-    document.getElementById('parentRemark').value = data.remark.parent_remark || '';
-    document.getElementById('termOpenDate').value = data.remark.term_open_date || '';
-    document.getElementById('termCloseDate').value = data.remark.term_close_date || '';
-
-    document.getElementById('reportOutput').style.display = 'block';
-    msg.innerHTML = '';
-  } catch (err) {
-    msg.innerHTML = `<div class="error">${err.message}</div>`;
+  if (raw < 1 || raw > total) {
+    document.getElementById('marksMsg').innerHTML = `<div class="error">Score must be between 1 and ${total} (the total marks for this test).</div>`;
+    return;
   }
-}
 
-async function saveRemarks() {
-  if (!currentReportLearnerId || !currentReportExamId) return;
-  const class_teacher_remark = document.getElementById('classTeacherRemark').value;
-  const head_teacher_remark = document.getElementById('headTeacherRemark').value;
-  const parent_remark = document.getElementById('parentRemark').value;
-  const term_open_date = document.getElementById('termOpenDate').value;
-  const term_close_date = document.getElementById('termCloseDate').value;
+  const converted = total === 100 ? raw : Math.round((raw / total) * 100 * 10) / 10;
+
   try {
-    await api(`/api/report/${currentReportLearnerId}/${currentReportExamId}/remarks`, {
+    await api('/api/marks', {
       method: 'POST',
-      body: JSON.stringify({ class_teacher_remark, head_teacher_remark, parent_remark, term_open_date, term_close_date })
+      body: JSON.stringify({
+        exam_session_id: Number(assessmentId),
+        learner_id: learnerId,
+        subject_id: subjectId,
+        score: converted,
+        comment: comment
+      })
     });
-    document.getElementById('reportMsg').innerHTML = '<div class="success">Remarks saved.</div>';
-  } catch (err) {
-    document.getElementById('reportMsg').innerHTML = `<div class="error">${err.message}</div>`;
-  }
-}
-
-async function generateAllClassReports() {
-  const classId = document.getElementById('reportClassSelect').value;
-  const examId = document.getElementById('reportExamSelect').value;
-  const msg = document.getElementById('bulkReportMsg');
-  if (!classId || !examId) { msg.innerHTML = '<div class="error">Choose a class and exam session first.</div>'; return; }
-  msg.innerHTML = 'Building reports, please wait...';
-  try {
-    const learners = await api(`/api/classes/${classId}/list`);
-    const container = document.getElementById('bulkReportContainer');
-    const bulkCls = currentClasses.find(c => c.id == classId);
-    const bulkExam = currentExams.find(ex => ex.id == examId);
-    let combinedHtml = '';
-    for (const learner of learners) {
-      const data = await api(`/api/report/${learner.id}/${examId}`);
-      const overallLabel = data.overallBand ? data.overallBand.grade_letter : '-';
-      let subjectRows = '';
-      data.marks.forEach(m => {
-        const gradeLabel = m.band ? `${m.band.grade_letter} (${m.band.points} pts)` : '-';
-        subjectRows += `<tr><td>${m.subject_name}</td><td>${m.score}</td><td>${gradeLabel}</td><td>${m.comment || ''}</td></tr>`;
-      });
-
-      const bulkClassRemark = data.remark.class_teacher_remark || '';
-      const bulkHeadRemark = data.remark.head_teacher_remark || '';
-      const bulkParentRemark = data.remark.parent_remark || '';
-
-      combinedHtml += `
-        <div style="page-break-after:always; padding:20px; border:1px solid #ddd; margin-bottom:16px;">
-          <h2 style="text-align:center;">${(schoolName || '').toUpperCase()}</h2>
-          <h3 style="text-align:center;">${bulkCls ? bulkCls.stream_name + ' (' + formatGrade(bulkCls.grade) + ')' : ''}</h3>
-          <h3 style="text-align:center;">${bulkExam ? bulkExam.name : ''}</h3>
-          <h2>${data.learner.name}</h2>
-          <p>Admission #: ${data.learner.admission_number} | Assessment #: ${data.learner.assessment_number || '-'} | Sex: ${data.learner.sex || '-'}</p>
-          <table style="width:100%; border-collapse:collapse;">
-            <thead><tr><th style="text-align:left;border-bottom:1px solid #ccc;">Subject</th><th style="text-align:left;border-bottom:1px solid #ccc;">Score</th><th style="text-align:left;border-bottom:1px solid #ccc;">Grade</th><th style="text-align:left;border-bottom:1px solid #ccc;">Comment</th></tr></thead>
-            <tbody>${subjectRows}</tbody>
-          </table>
-          <p><b>Class Position:</b> ${data.position} out of ${data.totalInClass}</p>
-          <p><b>Total Points:</b> ${data.totalPoints} | <b>Overall Grade:</b> ${overallLabel}</p>
-          <p><b>Term Opening Date:</b> ${data.remark.term_open_date || ''}</p>
-          <div style="border-bottom:1px solid #000; height:20px; margin:4px 0 12px 0;"></div>
-          <p><b>Term Closing Date:</b> ${data.remark.term_close_date || ''}</p>
-          <div style="border-bottom:1px solid #000; height:20px; margin:4px 0 12px 0;"></div>
-
-          <p><b>Class Teacher's Remark:</b></p>
-          <div style="display:flex; gap:12px; align-items:flex-start; margin:4px 0 16px 0;">
-            <div style="flex:1;">${bulkClassRemark}</div>
-            <div style="width:160px; text-align:center; flex-shrink:0;">
-              <div style="width:160px; height:60px; border:1px solid #000;"></div>
-              <div style="font-size:11px; color:#555; margin-top:2px;">Class Teacher's Signature</div>
-            </div>
-          </div>
-
-          <p><b>Head Teacher's Remark:</b></p>
-          <div style="display:flex; gap:12px; align-items:flex-start; margin:4px 0 16px 0;">
-            <div style="flex:1;">${bulkHeadRemark}</div>
-            <div style="width:160px; text-align:center; flex-shrink:0;">
-              <div style="width:160px; height:60px; border:1px solid #000;"></div>
-              <div style="font-size:11px; color:#555; margin-top:2px;">Head Teacher's Signature</div>
-            </div>
-          </div>
-
-          <p><b>Parent/Guardian's Remark:</b></p>
-          <div style="display:flex; gap:12px; align-items:flex-start; margin:4px 0 16px 0;">
-            <div style="flex:1;">${bulkParentRemark}</div>
-            <div style="width:160px; text-align:center; flex-shrink:0;">
-              <div style="width:160px; height:60px; border:1px solid #000;"></div>
-              <div style="font-size:11px; color:#555; margin-top:2px;">Parent/Guardian's Signature</div>
-            </div>
-          </div>
-          ${buildGradeKeyHtml(currentGradingBands)}
-        </div>`;
-    }
-    container.innerHTML = combinedHtml;
-    container.style.display = 'block';
-    msg.innerHTML = `<div class="success">Generated ${learners.length} report(s) below - scroll down to check them, then click Download.</div>`;
-  } catch (err) {
-    msg.innerHTML = `<div class="error">${err.message}</div>`;
-  }
-}
-
-async function downloadAllClassReports() {
-  const container = document.getElementById('bulkReportContainer');
-  const msg = document.getElementById('bulkReportMsg');
-  if (!container.innerHTML.trim()) {
-    msg.innerHTML = '<div class="error">Click "Generate All Reports for This Class" first.</div>';
-    return;
-  }
-
-  // Each learner's report is one direct child div of the container
-  // (built in generateAllClassReports). Rendering the whole container
-  // as a single giant canvas is what was producing blank/empty PDFs for
-  // larger classes - the combined image silently exceeds the browser's
-  // max canvas size. Instead, render one learner at a time and give
-  // each its own A4 page, shrinking to fit if a single report is taller
-  // than one page.
-  const reportBlocks = Array.from(container.children);
-  if (!reportBlocks.length) {
-    msg.innerHTML = '<div class="error">No reports to download.</div>';
-    return;
-  }
-  if (typeof html2canvas !== 'function' || !window.jspdf || !window.jspdf.jsPDF) {
-    msg.innerHTML = '<div class="error">PDF library failed to load. Refresh the page and try again.</div>';
-    return;
-  }
-
-  msg.innerHTML = `Preparing PDF... (0 of ${reportBlocks.length})`;
-
-  const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  const pageHeight = pdf.internal.pageSize.getHeight();
-
-  for (let i = 0; i < reportBlocks.length; i++) {
-    const canvas = await html2canvas(reportBlocks[i], { scale: 2, useCORS: true });
-    const imgData = canvas.toDataURL('image/jpeg', 0.95);
-    const imgWidthMm = pageWidth;
-    const imgHeightMm = (canvas.height * imgWidthMm) / canvas.width;
-
-    if (i > 0) pdf.addPage();
-
-    if (imgHeightMm <= pageHeight) {
-      pdf.addImage(imgData, 'JPEG', 0, 0, imgWidthMm, imgHeightMm);
+    if (total !== 100) {
+      scoreInput.value = converted;
+      scoreInput.max = 100;
+      document.getElementById('marksMsg').innerHTML = `<div class="success">Saved as ${converted}/100 (converted from ${raw}/${total}).</div>`;
     } else {
-      // Report is taller than one A4 page - shrink it to fit exactly one page.
-      const scaledWidthMm = (pageHeight / imgHeightMm) * imgWidthMm;
-      const xOffsetMm = (pageWidth - scaledWidthMm) / 2;
-      pdf.addImage(imgData, 'JPEG', xOffsetMm, 0, scaledWidthMm, pageHeight);
+      document.getElementById('marksMsg').innerHTML = '<div class="success">Saved.</div>';
     }
-
-    msg.innerHTML = `Preparing PDF... (${i + 1} of ${reportBlocks.length})`;
-  }
-
-  pdf.save('class_reports.pdf');
-  msg.innerHTML = '<div class="success">Downloaded.</div>';
-}
-
-// ====== SCHOOL NAME HEADER ======
-let schoolName = '';
-async function loadSchoolInfo() {
-  try {
-    const data = await api('/api/school');
-    schoolName = data.name;
-    const upper = schoolName.toUpperCase();
-    ['marksheetSchoolHeader', 'marksheetSchoolHeader2', 'analysisSchoolHeader', 'reportSchoolHeader'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.textContent = upper;
-    });
+    updateSubjectMean();
+    updateSubjectDistribution();
   } catch (err) {
-    // If this fails, forms just show without the header - not critical.
+    document.getElementById('marksMsg').innerHTML = `<div class="error">${err.message}</div>`;
   }
 }
 </script>
