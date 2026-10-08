@@ -82,7 +82,7 @@
       <button data-tab="subjects">Subjects</button>
       <button data-tab="teachers">Teachers</button>
       <button data-tab="assignments">Assignments</button>
-      <button data-tab="exams">Exams</button>
+      <button data-tab="exams">Assessments</button>
       <button data-tab="grading">Grading</button>
       <button data-tab="marksheet">Mark Sheet</button>
       <button data-tab="subjectmarksheet">Subject Marksheet</button>
@@ -120,8 +120,8 @@
           </select>
         </div>
         <div class="row">
-          <input type="text" id="learnerUpi" placeholder="ULI Number" required>
-          <input type="text" id="learnerAdmission" placeholder="Admission Number" required>
+          <input type="text" id="learnerUpi" placeholder="ULI Number (optional)">
+          <input type="text" id="learnerAdmission" placeholder="Admission Number (optional)">
         </div>
         <input type="text" id="learnerAssessment" placeholder="Assessment Number">
         <button type="submit">Add Learner</button>
@@ -180,13 +180,13 @@
       </table>
     </div>
 
-    <!-- EXAMS TAB -->
+    <!-- ASSESSMENTS TAB -->
     <div id="tab-exams" class="tab hidden">
-      <h2>Exam Sessions</h2>
-      <p>Open an exam session so teachers can enter marks. Close it when done — only you can edit marks after that.</p>
+      <h2>Assessment Sessions</h2>
+      <p>Open an assessment session so teachers can enter marks. Close it when done — only you can edit marks after that.</p>
       <form id="examForm" class="row">
         <input type="text" id="examName" placeholder="e.g. Term 2 Mid-Term 2026" required>
-        <button type="submit">Create Exam Session</button>
+        <button type="submit">Create Assessment Session</button>
       </form>
       <div id="examMsg"></div>
       <table id="examTable">
@@ -217,7 +217,7 @@
     <div id="tab-marksheet" class="tab hidden">
       <h2 id="marksheetSchoolHeader" style="text-align:center;"></h2>
       <h2>Mark Sheet</h2>
-      <p>Click any score to correct it yourself (works even after the exam session is closed).</p>
+      <p>Click any score to correct it yourself (works even after the assessment session is closed).</p>
       <div class="row">
         <select id="marksheetClassSelect"></select>
         <select id="marksheetExamSelect"></select>
@@ -237,7 +237,7 @@
     <div id="tab-subjectmarksheet" class="tab hidden">
       <h2 id="smsSchoolHeader" style="text-align:center;"></h2>
       <h2>Subject Marks Sheet</h2>
-      <p>A blank marks sheet for a class, for a teacher to print and fill in by hand (e.g. during an exam), then later enter into the system.</p>
+      <p>A blank marks sheet for a class, for a teacher to print and fill in by hand (e.g. during an assessment), then later enter into the system.</p>
       <div class="row">
         <select id="smsClassSelect"></select>
         <button onclick="loadSubjectMarksSheet()">Generate</button>
@@ -279,9 +279,9 @@
         <div id="classTrendBox"></div>
         <h3>Learner Ranking (best to worst), with each subject shown</h3>
         <div id="learnerRankContainer" style="overflow-x:auto;"></div>
-        <h3>Most Improved Learners (vs previous exam)</h3>
+        <h3>Most Improved Learner (vs previous assessment)</h3>
         <table id="improvedTable">
-          <thead><tr><th>Position</th><th>Name</th><th>Previous Average</th><th>Current Average</th><th>Change</th></tr></thead>
+          <thead><tr><th>Name</th><th>Previous Average</th><th>Current Average</th><th>Improvement (%)</th></tr></thead>
           <tbody></tbody>
         </table>
         <h3>Subject Ranking (best to worst, by mean)</h3>
@@ -342,7 +342,7 @@
           </div>
         </div>
         <h3>Remarks &amp; Signatures</h3>
-        <div class="hint no-print">Class Teacher's and Head Teacher's remarks are filled in automatically based on the learner's average for this exam. Edit the wording if you want, then click Save Remarks.</div>
+        <div class="hint no-print">Class Teacher's and Head Teacher's remarks are filled in automatically based on the learner's average for this assessment. Edit the wording if you want, then click Save Remarks.</div>
 
         <label>Class Teacher's Remark</label>
         <div class="remarkRow">
@@ -575,7 +575,7 @@ async function loadLearners(classId) {
     tbody.innerHTML = '';
     learners.forEach(l => {
       tbody.innerHTML += `<tr>
-        <td>${l.name}</td><td>${l.sex || ''}</td><td>${l.upi_number}</td><td>${l.admission_number}</td>
+        <td>${l.name}</td><td>${l.sex || ''}</td><td>${l.upi_number || '-'}</td><td>${l.admission_number || '-'}</td>
         <td><button onclick="editLearner(${l.id}, ${classId})">Edit</button>
         <button class="danger" onclick="deleteLearner(${l.id}, ${classId})">Delete</button></td>
       </tr>`;
@@ -592,9 +592,9 @@ function editLearner(id, classId) {
   if (name === null) return;
   const sex = prompt('Sex (M or F):', l.sex || '');
   if (sex === null) return;
-  const upi_number = prompt('ULI number:', l.upi_number);
+  const upi_number = prompt('ULI number (optional):', l.upi_number || '');
   if (upi_number === null) return;
-  const admission_number = prompt('Admission number:', l.admission_number);
+  const admission_number = prompt('Admission number (optional):', l.admission_number || '');
   if (admission_number === null) return;
   const assessment_number = prompt('Assessment number:', l.assessment_number || '');
   if (assessment_number === null) return;
@@ -796,7 +796,7 @@ async function deleteAssignment(id) {
   }
 }
 
-// ====== EXAM SESSIONS ======
+// ====== ASSESSMENT SESSIONS ======
 let currentExams = [];
 async function loadExams() {
   try {
@@ -822,7 +822,7 @@ document.getElementById('examForm').addEventListener('submit', async (e) => {
   const msg = document.getElementById('examMsg');
   try {
     await api('/api/exam-sessions', { method: 'POST', body: JSON.stringify({ name }) });
-    msg.innerHTML = '<div class="success">Exam session created.</div>';
+    msg.innerHTML = '<div class="success">Assessment session created.</div>';
     e.target.reset();
     loadExams();
   } catch (err) {
@@ -968,7 +968,7 @@ async function loadMarksheet() {
   const examId = document.getElementById('marksheetExamSelect').value;
   const container = document.getElementById('marksheetContainer');
   const msg = document.getElementById('marksheetMsg');
-  if (!classId || !examId) { msg.innerHTML = '<div class="error">Add a class and exam session first.</div>'; return; }
+  if (!classId || !examId) { msg.innerHTML = '<div class="error">Add a class and assessment session first.</div>'; return; }
   try {
     const data = await api(`/api/marksheet/${classId}/${examId}`);
     document.getElementById('marksheetClassLine').textContent = `${data.class.stream_name} (${formatGrade(data.class.grade)})`;
@@ -978,7 +978,7 @@ async function loadMarksheet() {
     data.subjects.forEach(s => { html += `<th>${s.name}</th>`; });
     html += '</tr></thead><tbody>';
     data.rows.forEach(row => {
-      html += `<tr><td>${row.learner.name}</td><td>${row.learner.admission_number}</td>`;
+      html += `<tr><td>${row.learner.name}</td><td>${row.learner.admission_number || '-'}</td>`;
       data.subjects.forEach((s, i) => {
         const score = row.scores[i];
         const level = row.levels ? row.levels[i] : null;
@@ -1018,7 +1018,7 @@ async function loadAnalysis() {
   const classId = document.getElementById('analysisClassSelect').value;
   const examId = document.getElementById('analysisExamSelect').value;
   const msg = document.getElementById('analysisMsg');
-  if (!classId || !examId) { msg.innerHTML = '<div class="error">Add a class and exam session first.</div>'; return; }
+  if (!classId || !examId) { msg.innerHTML = '<div class="error">Add a class and assessment session first.</div>'; return; }
   try {
     const data = await api(`/api/analysis/class/${classId}/${examId}`);
     document.getElementById('analysisClassLine').textContent = `${data.class.stream_name} (${formatGrade(data.class.grade)})`;
@@ -1031,11 +1031,11 @@ async function loadAnalysis() {
       const direction = t.change > 0 ? 'improved' : (t.change < 0 ? 'declined' : 'stayed the same');
       const color = t.change > 0 ? '#27ae60' : (t.change < 0 ? '#c0392b' : '#555');
       trendBox.innerHTML = `<p style="color:${color}; font-weight:bold;">
-        Class average ${direction}: ${t.previousMean.toFixed(1)} (${t.previousExamName}) &rarr; ${t.currentMean.toFixed(1)} (this exam),
+        Class average ${direction}: ${t.previousMean.toFixed(1)} (${t.previousExamName}) &rarr; ${t.currentMean.toFixed(1)} (this assessment),
         a change of ${t.change > 0 ? '+' : ''}${t.change.toFixed(1)}.
       </p>`;
     } else {
-      trendBox.innerHTML = `<p style="color:#555;">No previous exam session found for this class yet, so no trend to compare.</p>`;
+      trendBox.innerHTML = `<p style="color:#555;">No previous assessment session found for this class yet, so no trend to compare.</p>`;
     }
 
     const distBody = document.querySelector('#gradeDistributionTable tbody');
@@ -1055,7 +1055,10 @@ async function loadAnalysis() {
       const subjectNames = data.learnerRanking[0].subjects.map(s => s.subject);
       let html = '<table><thead><tr><th>Position</th><th>Name</th>';
       subjectNames.forEach(name => { html += `<th>${name}</th>`; });
-      html += '<th>Total Marks</th><th>Average</th><th>Total Points</th><th>Overall Grade</th></tr></thead><tbody>';
+      html += '<th>Total Marks</th><th>Average</th><th>Total Points</th><th>Improvement (%)</th><th>Overall Grade</th></tr></thead><tbody>';
+      // Each learner's change in average vs the previous assessment (from the same analysis data)
+      const improvementByLearner = {};
+      data.mostImproved.forEach(m => { improvementByLearner[m.learner.id] = m.improvement; });
       data.learnerRanking.forEach(r => {
         html += `<tr><td>${r.position}</td><td>${r.learner.name}</td>`;
         r.subjects.forEach(s => {
@@ -1063,7 +1066,10 @@ async function loadAnalysis() {
           html += `<td>${display}</td>`;
         });
         const totalMarks = r.subjects.reduce((sum, s) => sum + (s.score !== null ? s.score : 0), 0);
-        html += `<td>${totalMarks}</td><td>${r.mean.toFixed(1)}</td><td>${r.totalPoints}</td><td>${r.overallLevel || '-'}</td></tr>`;
+        const imp = improvementByLearner[r.learner.id];
+        const impColor = imp > 0 ? '#27ae60' : (imp < 0 ? '#c0392b' : '#555');
+        const impDisplay = imp === undefined ? '-' : `<span style="color:${impColor};">${imp > 0 ? '+' : ''}${imp.toFixed(1)}%</span>`;
+        html += `<td>${totalMarks}</td><td>${r.mean.toFixed(1)}</td><td>${r.totalPoints}</td><td>${impDisplay}</td><td>${r.overallLevel || '-'}</td></tr>`;
       });
       html += '</tbody></table>';
       container.innerHTML = html;
@@ -1073,13 +1079,16 @@ async function loadAnalysis() {
 
     const improvedBody = document.querySelector('#improvedTable tbody');
     improvedBody.innerHTML = '';
-    data.mostImproved.forEach((r, i) => {
-      const changeColor = r.improvement > 0 ? '#27ae60' : (r.improvement < 0 ? '#c0392b' : '#555');
-      improvedBody.innerHTML += `<tr><td>${i + 1}</td><td>${r.learner.name}</td><td>${r.previousMean.toFixed(1)}</td><td>${r.currentMean.toFixed(1)}</td>
-        <td style="color:${changeColor};">${r.improvement > 0 ? '+' : ''}${r.improvement.toFixed(1)}</td></tr>`;
-    });
     if (!data.mostImproved.length) {
-      improvedBody.innerHTML = '<tr><td colspan="5">No previous exam session to compare against yet.</td></tr>';
+      improvedBody.innerHTML = '<tr><td colspan="4">No previous assessment session to compare against yet.</td></tr>';
+    } else {
+      const top = data.mostImproved[0];   // list is already sorted best-first
+      if (top.improvement > 0) {
+        improvedBody.innerHTML = `<tr><td>${top.learner.name}</td><td>${top.previousMean.toFixed(1)}</td><td>${top.currentMean.toFixed(1)}</td>
+          <td style="color:#27ae60;">+${top.improvement.toFixed(1)}%</td></tr>`;
+      } else {
+        improvedBody.innerHTML = '<tr><td colspan="4">No learner improved compared to the previous assessment.</td></tr>';
+      }
     }
 
     const subjectBody = document.querySelector('#subjectRankTable tbody');
@@ -1114,7 +1123,7 @@ async function updateReportLearnerSelect() {
   if (!classId) { learnerSelect.innerHTML = ''; return; }
   try {
     const learners = await api(`/api/classes/${classId}/list`);
-    learnerSelect.innerHTML = learners.map(l => `<option value="${l.id}">${l.name} (${l.admission_number})</option>`).join('');
+    learnerSelect.innerHTML = learners.map(l => `<option value="${l.id}">${l.name}${l.admission_number ? ' (' + l.admission_number + ')' : ''}</option>`).join('');
   } catch (err) {
     learnerSelect.innerHTML = '';
   }
@@ -1123,7 +1132,7 @@ async function updateReportLearnerSelect() {
 document.getElementById('reportClassSelect').addEventListener('change', updateReportLearnerSelect);
 
 function buildLineGraph(history) {
-  if (!history.length) return '<p>No exam history yet for this learner.</p>';
+  if (!history.length) return '<p>No assessment history yet for this learner.</p>';
   const width = 600, height = 220, padTop = 20, padBottom = 40, padLeft = 40, padRight = 20;
   const plotWidth = width - padLeft - padRight;
   const plotHeight = height - padTop - padBottom;
@@ -1156,7 +1165,7 @@ async function loadReport() {
   const learnerId = document.getElementById('reportLearnerSelect').value;
   const examId = document.getElementById('reportExamSelect').value;
   const msg = document.getElementById('reportMsg');
-  if (!learnerId || !examId) { msg.innerHTML = '<div class="error">Choose a class, learner, and exam session first.</div>'; return; }
+  if (!learnerId || !examId) { msg.innerHTML = '<div class="error">Choose a class, learner, and assessment session first.</div>'; return; }
   try {
     const data = await api(`/api/report/${learnerId}/${examId}`);
     currentReportLearnerId = learnerId;
@@ -1168,7 +1177,7 @@ async function loadReport() {
     document.getElementById('reportExamLine').textContent = repExam ? repExam.name : '';
     document.getElementById('reportLearnerName').textContent = data.learner.name;
     document.getElementById('reportLearnerMeta').textContent =
-      `Admission #: ${data.learner.admission_number} | Assessment #: ${data.learner.assessment_number || '-'} | Sex: ${data.learner.sex || '-'}`;
+      `Admission #: ${data.learner.admission_number || '-'} | Assessment #: ${data.learner.assessment_number || '-'} | Sex: ${data.learner.sex || '-'}`;
 
     const subjBody = document.querySelector('#reportSubjectsTable tbody');
     subjBody.innerHTML = '';
@@ -1221,7 +1230,7 @@ async function generateAllClassReports() {
   const classId = document.getElementById('reportClassSelect').value;
   const examId = document.getElementById('reportExamSelect').value;
   const msg = document.getElementById('bulkReportMsg');
-  if (!classId || !examId) { msg.innerHTML = '<div class="error">Choose a class and exam session first.</div>'; return; }
+  if (!classId || !examId) { msg.innerHTML = '<div class="error">Choose a class and assessment session first.</div>'; return; }
   msg.innerHTML = 'Building reports, please wait...';
   try {
     const learners = await api(`/api/classes/${classId}/list`);
@@ -1248,7 +1257,7 @@ async function generateAllClassReports() {
           <h3 style="text-align:center;">${bulkCls ? bulkCls.stream_name + ' (' + formatGrade(bulkCls.grade) + ')' : ''}</h3>
           <h3 style="text-align:center;">${bulkExam ? bulkExam.name : ''}</h3>
           <h2>${data.learner.name}</h2>
-          <p>Admission #: ${data.learner.admission_number} | Assessment #: ${data.learner.assessment_number || '-'} | Sex: ${data.learner.sex || '-'}</p>
+          <p>Admission #: ${data.learner.admission_number || '-'} | Assessment #: ${data.learner.assessment_number || '-'} | Sex: ${data.learner.sex || '-'}</p>
           <table style="width:100%; border-collapse:collapse;">
             <thead><tr><th style="text-align:left;border-bottom:1px solid #ccc;">Subject</th><th style="text-align:left;border-bottom:1px solid #ccc;">Score</th><th style="text-align:left;border-bottom:1px solid #ccc;">Grade</th><th style="text-align:left;border-bottom:1px solid #ccc;">Comment</th></tr></thead>
             <tbody>${subjectRows}</tbody>

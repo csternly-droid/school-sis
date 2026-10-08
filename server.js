@@ -141,7 +141,7 @@ app.post('/api/learners', requireRole('admin'), wrap(async (req, res) => {
     const { rows } = await pool.query(
       `INSERT INTO learners (school_id, class_id, upi_number, name, sex, admission_number, assessment_number)
        VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
-      [req.user.school_id, class_id, upi_number, name, sex, admission_number, assessment_number]
+      [req.user.school_id, class_id, upi_number || null, name, sex, admission_number || null, assessment_number || null]
     );
     res.json({ id: rows[0].id });
   } catch (err) {
@@ -167,12 +167,19 @@ app.delete('/api/learners/:id', requireRole('admin'), wrap(async (req, res) => {
 
 app.patch('/api/learners/:id', requireRole('admin'), wrap(async (req, res) => {
   const { name, sex, upi_number, admission_number, assessment_number } = req.body;
-  await pool.query(
-    `UPDATE learners SET name=$1, sex=$2, upi_number=$3, admission_number=$4, assessment_number=$5
-     WHERE id=$6 AND school_id=$7`,
-    [name, sex, upi_number, admission_number, assessment_number, req.params.id, req.user.school_id]
-  );
-  res.json({ ok: true });
+  try {
+    await pool.query(
+      `UPDATE learners SET name=$1, sex=$2, upi_number=$3, admission_number=$4, assessment_number=$5
+       WHERE id=$6 AND school_id=$7`,
+      [name, sex, upi_number || null, admission_number || null, assessment_number || null, req.params.id, req.user.school_id]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(400).json({ error: 'Another learner in your school already has this ULI number.' });
+    }
+    throw err;
+  }
 }));
 
 // ---------- ADMIN: subjects ----------
@@ -566,7 +573,7 @@ app.get('/api/analysis/class/:classId/:examSessionId', requireRole('admin'), wra
   }).sort((a, b) => b.mean - a.mean);
 
   const prevRes = await pool.query(
-    'SELECT * FROM exam_sessions WHERE school_id=$1 AND id < $2 ORDER BY id DESC LIMIT 1',
+    'SELECT * FROM exam_sessions WHERE school_id=$1 AND id < $2 AND created_by_teacher_id IS NULL ORDER BY id DESC LIMIT 1',
     [req.user.school_id, examSessionId]
   );
   const prevExam = prevRes.rows[0] || null;
@@ -644,7 +651,7 @@ const withGrades = [];
   const historyRes = await pool.query(`
     SELECT es.name as exam_name, es.id as exam_session_id, AVG(m.score) as average
     FROM marks m JOIN exam_sessions es ON es.id = m.exam_session_id
-    WHERE m.learner_id=$1 GROUP BY es.id, es.name ORDER BY es.id
+    WHERE m.learner_id=$1 AND es.created_by_teacher_id IS NULL GROUP BY es.id, es.name ORDER BY es.id
   `, [learnerId]);
 
   const remarkRes = await pool.query('SELECT * FROM report_remarks WHERE learner_id=$1 AND exam_session_id=$2', [learnerId, examSessionId]);
