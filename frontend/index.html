@@ -42,6 +42,13 @@
   .signatureBox { width: 160px; height: 60px; border: 1px solid #000; background: #fff; }
   .signatureLabel { font-size: 11px; color: #555; margin-top: 2px; }
   .hint { font-size: 12px; color: #777; margin: 2px 0 8px 0; }
+  /* Analysis sheet: Times New Roman, 8pt, 1.15 line spacing */
+  #analysisPrintArea, #analysisPrintArea * { font-family: 'Times New Roman', Times, serif; line-height: 1.15; }
+  #analysisPrintArea, #analysisPrintArea table, #analysisPrintArea th, #analysisPrintArea td,
+  #analysisPrintArea p, #analysisPrintArea div { font-size: 8pt; }
+  #analysisPrintArea th, #analysisPrintArea td { padding: 3px 5px; }
+  #analysisPrintArea h2 { font-size: 12pt; margin: 4px 0; }
+  #analysisPrintArea h3 { font-size: 9pt; margin: 8px 0 4px 0; }
   @media print {
     body * { visibility: hidden; }
     .printable, .printable * { visibility: visible; }
@@ -269,7 +276,7 @@
         <select id="analysisClassSelect"></select>
         <select id="analysisExamSelect"></select>
         <button onclick="loadAnalysis()">Run Analysis</button>
-        <button onclick="downloadArea('analysisPrintArea', 'analysis.pdf', 'portrait')">Download Analysis (PDF)</button>
+        <button onclick="downloadArea('analysisPrintArea', 'analysis.pdf', 'landscape')">Download Analysis (PDF)</button>
       </div>
       <div id="analysisMsg"></div>
       <div id="analysisPrintArea">
