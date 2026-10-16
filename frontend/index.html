@@ -1244,10 +1244,32 @@ async function generateAllClassReports() {
     const container = document.getElementById('bulkReportContainer');
     const bulkCls = currentClasses.find(c => c.id == classId);
     const bulkExam = currentExams.find(ex => ex.id == examId);
-    let combinedHtml = '';
+      let combinedHtml = '';
+
+    // One analysis call for the whole class gives every learner's improvement
+    // vs the previous assessment (the same figures shown in the Analysis tab).
+    const improvementByLearner = {};
+    try {
+      const analysis = await api(`/api/analysis/class/${classId}/${examId}`);
+      analysis.mostImproved.forEach(m => { improvementByLearner[m.learner.id] = m; });
+    } catch (e) { /* if this fails, improvement simply shows "-" */ }
+
     for (const learner of learners) {
       const data = await api(`/api/report/${learner.id}/${examId}`);
       const overallLabel = data.overallBand ? data.overallBand.grade_letter : '-';
+
+      // This learner's total marks, average, and improvement
+      const scoredMarks = data.marks.filter(m => m.score !== null && m.score !== undefined);
+      const totalMarks = scoredMarks.reduce((sum, m) => sum + Number(m.score), 0);
+      const totalMarksDisplay = scoredMarks.length ? totalMarks : '-';
+      const averageMarks = scoredMarks.length ? (totalMarks / scoredMarks.length).toFixed(1) : '-';
+      const imp = improvementByLearner[learner.id];
+      let improvementHtml = '-';
+      if (imp) {
+        const impColor = imp.improvement > 0 ? '#27ae60' : (imp.improvement < 0 ? '#c0392b' : '#555');
+        const sign = imp.improvement > 0 ? '+' : '';
+        improvementHtml = `<span style="color:${impColor};">${sign}${imp.improvement.toFixed(1)}%</span> (previous average ${imp.previousMean.toFixed(1)} &rarr; current average ${imp.currentMean.toFixed(1)})`;
+      }
       let subjectRows = '';
       data.marks.forEach(m => {
         const gradeLabel = m.band ? `${m.band.grade_letter} (${m.band.points} pts)` : '-';
@@ -1270,7 +1292,9 @@ async function generateAllClassReports() {
             <tbody>${subjectRows}</tbody>
           </table>
           <p><b>Class Position:</b> ${data.position} out of ${data.totalInClass}</p>
-          <p><b>Total Points:</b> ${data.totalPoints} | <b>Overall Grade:</b> ${overallLabel}</p>
+                   <p><b>Total Points:</b> ${data.totalPoints} | <b>Overall Grade:</b> ${overallLabel}</p>
+          <p><b>Total Marks:</b> ${totalMarksDisplay} | <b>Average:</b> ${averageMarks}</p>
+          <p><b>Improvement:</b> ${improvementHtml}</p>
           <p><b>Term Opening Date:</b> ${data.remark.term_open_date || ''}</p>
           <div style="border-bottom:1px solid #000; height:20px; margin:4px 0 12px 0;"></div>
           <p><b>Term Closing Date:</b> ${data.remark.term_close_date || ''}</p>
