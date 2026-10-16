@@ -4,6 +4,7 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const pool = require('./db');
 const { signToken, requireRole } = require('./auth');
+const { generateSchemeRows } = require('./schemes');
 
 const path = require('path');
 
@@ -388,6 +389,95 @@ app.put('/api/marks/admin-override', requireRole('admin'), wrap(async (req, res)
     ON CONFLICT (exam_session_id, learner_id, subject_id)
     DO UPDATE SET score=EXCLUDED.score, entered_at=NOW()
   `, [req.user.school_id, exam_session_id, learner_id, subject_id, score]);
+  res.json({ ok: true });
+}));
+
+// ---------- TEACHER: Schemes of Work (Kenyan CBC) ----------
+app.get('/api/teacher/profile', requireRole('teacher'), wrap(async (req, res) => {
+  const { rows } = await pool.query(
+    'SELECT t.full_name AS teacher_name, s.name AS school_name FROM teachers t JOIN schools s ON s.id = t.school_id WHERE t.id=$1 AND t.school_id=$2',
+    [req.user.id, req.user.school_id]
+  );
+  res.json(rows[0] || { teacher_name: '', school_name: '' });
+}));
+
+// Generates a scheme with AI. Nothing is saved until the teacher clicks Save.
+app.post('/api/teacher/schemes/generate', requireRole('teacher'), wrap(async (req, res) => {
+  const subject = String(req.body.subject || '').trim();
+  const grade = String(req.body.grade || '').trim();
+  const term = Number(req.body.term);
+  const year = Number(req.body.year);
+  const weeks = Number(req.body.weeks) || 13;
+  const lessonsPerWeek = Number(req.body.lessons_per_week) || 4;
+
+  if (!subject || subject.length > 80) return res.status(400).json({ error: 'Please enter the subject.' });
+  if (!grade || grade.length > 20) return res.status(400).json({ error: 'Please choose the grade.' });
+  if (![1, 2, 3].includes(term)) return res.status(400).json({ error: 'Term must be 1, 2 or 3.' });
+  if (!Number.isInteger(year) || year < 2000 || year > 2100) return res.status(400).json({ error: 'Please enter a valid year.' });
+  if (!Number.isInteger(weeks) || weeks < 1 || weeks > 20) return res.status(400).json({ error: 'Weeks must be between 1 and 20.' });
+  if (!Number.isInteger(lessonsPerWeek) || lessonsPerWeek < 1 || lessonsPerWeek > 12) return res.status(400).json({ error: 'Lessons per week must be between 1 and 12.' });
+
+  try {
+    const rows = await generateSchemeRows({ subject, grade, term, year, weeks, lessonsPerWeek });
+    res.json({ rows });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    throw err;
+  }
+}));
+
+function validSchemeContent(content) {
+  return Array.isArray(content) && content.length > 0 && content.length <= 3 &&
+    content.every(sec => sec && Array.isArray(sec.rows) && sec.rows.length <= 40);
+}
+
+app.post('/api/teacher/schemes', requireRole('teacher'), wrap(async (req, res) => {
+  const { subject_name, grade, term, year, content } = req.body;
+  if (!subject_name || !grade || !term || !year || !validSchemeContent(content)) {
+    return res.status(400).json({ error: 'Scheme details are incomplete.' });
+  }
+  const { rows } = await pool.query(
+    `INSERT INTO schemes_of_work (school_id, teacher_id, subject_name, grade, term, year, content)
+     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+    [req.user.school_id, req.user.id, String(subject_name), String(grade), String(term), Number(year), JSON.stringify(content)]
+  );
+  res.json({ id: rows[0].id });
+}));
+
+app.get('/api/teacher/schemes', requireRole('teacher'), wrap(async (req, res) => {
+  const { rows } = await pool.query(
+    `SELECT id, subject_name, grade, term, year, created_at FROM schemes_of_work
+     WHERE school_id=$1 AND teacher_id=$2 ORDER BY id DESC`,
+    [req.user.school_id, req.user.id]
+  );
+  res.json(rows);
+}));
+
+app.get('/api/teacher/schemes/:id', requireRole('teacher'), wrap(async (req, res) => {
+  const { rows } = await pool.query(
+    'SELECT * FROM schemes_of_work WHERE id=$1 AND school_id=$2 AND teacher_id=$3',
+    [req.params.id, req.user.school_id, req.user.id]
+  );
+  if (!rows[0]) return res.status(404).json({ error: 'Scheme not found.' });
+  res.json(rows[0]);
+}));
+
+app.put('/api/teacher/schemes/:id', requireRole('teacher'), wrap(async (req, res) => {
+  const { content } = req.body;
+  if (!validSchemeContent(content)) return res.status(400).json({ error: 'Scheme details are incomplete.' });
+  const result = await pool.query(
+    'UPDATE schemes_of_work SET content=$1 WHERE id=$2 AND school_id=$3 AND teacher_id=$4',
+    [JSON.stringify(content), req.params.id, req.user.school_id, req.user.id]
+  );
+  if (!result.rowCount) return res.status(404).json({ error: 'Scheme not found.' });
+  res.json({ ok: true });
+}));
+
+app.delete('/api/teacher/schemes/:id', requireRole('teacher'), wrap(async (req, res) => {
+  await pool.query(
+    'DELETE FROM schemes_of_work WHERE id=$1 AND school_id=$2 AND teacher_id=$3',
+    [req.params.id, req.user.school_id, req.user.id]
+  );
   res.json({ ok: true });
 }));
 
